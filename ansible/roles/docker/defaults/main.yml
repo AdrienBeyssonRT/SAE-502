@@ -2,12 +2,12 @@
 docker_compose_version: "2.24.0"
 docker_packages:
   - docker.io
-  - docker-compose
   - python3-pip
   - python3-docker
+  - curl
+  - ca-certificates
 docker_pip_packages:
   - docker
-  - docker-compose
 
 
 

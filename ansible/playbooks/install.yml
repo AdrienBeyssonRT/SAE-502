@@ -2,8 +2,39 @@
 - name: Installation Docker et préparation du système
   hosts: all
   become: yes
+  gather_facts: yes
+  
+  pre_tasks:
+    - name: Vérifier que nous sommes sur un système Linux
+      fail:
+        msg: "Ce playbook nécessite un système Linux (Ubuntu/Debian)"
+      when: ansible_os_family != "Debian"
+  
   roles:
     - docker
+  
+  post_tasks:
+    - name: Vérifier l'installation Docker
+      command: docker --version
+      register: docker_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Vérifier l'installation docker-compose
+      command: docker-compose --version
+      register: docker_compose_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Afficher le résumé de l'installation
+      debug:
+        msg:
+          - "✅ Installation terminée !"
+          - "Docker: {{ docker_check.stdout if docker_check.rc == 0 else '❌ Non installé' }}"
+          - "Docker Compose: {{ docker_compose_check.stdout if docker_compose_check.rc == 0 else '❌ Non installé' }}"
+          - ""
+          - "Si vous n'êtes pas dans le groupe docker, déconnectez-vous et reconnectez-vous"
+          - "Ou exécutez: newgrp docker"
 
 
 

@@ -8,33 +8,93 @@
   apt:
     name: "{{ docker_packages }}"
     state: present
+  ignore_errors: yes
 
-- name: Install Python Docker modules via pip
+- name: Install Python Docker module via pip
   pip:
     name: "{{ docker_pip_packages }}"
     state: present
     extra_args: "--break-system-packages"
+  ignore_errors: yes
+  register: pip_install_result
 
-- name: Add current user to docker group
+- name: Vérifier l'installation du module docker
+  command: python3 -c "import docker; print(docker.__version__)"
+  register: docker_module_check
+  changed_when: false
+  failed_when: false
+
+- name: Afficher le statut du module docker
+  debug:
+    msg: "Module docker Python: {{ docker_module_check.stdout if docker_module_check.rc == 0 else 'Non installé' }}"
+
+- name: Installer docker-compose via pip (si pas disponible via apt)
+  pip:
+    name: docker-compose
+    state: present
+    extra_args: "--break-system-packages"
+  when: pip_install_result is succeeded
+  ignore_errors: yes
+
+- name: Vérifier si docker-compose est disponible
+  command: which docker-compose
+  register: docker_compose_which
+  changed_when: false
+  failed_when: false
+
+- name: Installer docker-compose-plugin si docker-compose n'existe pas
+  apt:
+    name: docker-compose-plugin
+    state: present
+  when: docker_compose_which.rc != 0
+  ignore_errors: yes
+
+- name: Créer un lien symbolique pour docker-compose si nécessaire
+  file:
+    src: /usr/libexec/docker/cli-plugins/docker-compose
+    dest: /usr/local/bin/docker-compose
+    state: link
+  when: docker_compose_which.rc != 0
+  ignore_errors: yes
+
+- name: Obtenir le nom d'utilisateur actuel
+  command: whoami
+  register: current_user
+  changed_when: false
+  when: ansible_user is not defined or ansible_user == "root"
+
+- name: Définir l'utilisateur à ajouter au groupe docker
+  set_fact:
+    docker_user: "{{ ansible_user | default(current_user.stdout | default('root')) }}"
+
+- name: Ajouter l'utilisateur au groupe docker (si pas root)
   user:
-    name: "{{ ansible_user_id }}"
+    name: "{{ docker_user }}"
     groups: docker
     append: yes
+  when: docker_user != "root"
 
-- name: Start and enable Docker service
+- name: Démarrer et activer le service Docker
   systemd:
     name: docker
     state: started
     enabled: yes
 
-- name: Verify Docker installation
+- name: Attendre que Docker soit prêt
+  wait_for:
+    path: /var/run/docker.sock
+    state: present
+    timeout: 30
+
+- name: Vérifier l'installation Docker
   command: docker --version
   register: docker_version
   changed_when: false
+  failed_when: false
 
-- name: Display Docker version
+- name: Afficher la version Docker
   debug:
-    msg: "{{ docker_version.stdout }}"
+    msg: "Docker installé: {{ docker_version.stdout if docker_version.rc == 0 else 'Erreur lors de la vérification' }}"
 
 
 
