@@ -1,0 +1,23 @@
+---
+- name: Déploiement complet de l'infrastructure AutoDeploy Firewall
+  hosts: all
+  become: yes
+  vars:
+    playbook_dir: "{{ playbook_dir | default(ansible_env.PWD | default('/tmp')) }}/ansible/playbooks"
+  
+  roles:
+    - role: firewall
+    - role: logcollector
+    - role: supervision
+    - role: client
+    - role: docker_compose
+
+  post_tasks:
+    - name: Afficher les informations de connexion
+      debug:
+        msg:
+          - "Infrastructure déployée avec succès!"
+          - "Supervision disponible sur: http://localhost:5000"
+          - "Pour accéder au client: docker exec -it client bash"
+          - "Pour voir les logs: docker-compose logs -f"
+

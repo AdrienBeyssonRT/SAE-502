@@ -1,0 +1,10 @@
+---
+firewall_image_name: "autodeploy-firewall"
+firewall_container_name: "firewall"
+logcollector_host: "logcollector"
+logcollector_port: 514
+internal_network: "172.20.0.0/16"
+ufw_log_level: "high"
+
+
+

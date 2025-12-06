@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  firewall:
+    build:
+      context: ./containers/firewall
+      dockerfile: Dockerfile
+    container_name: firewall
+    hostname: firewall
+    networks:
+      - firewall_network
+      - logs_network
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    privileged: true
+    environment:
+      - INTERNAL_NETWORK=172.20.0.0/16
+      - LOGGING_LEVEL=high
+    volumes:
+      - /lib/modules:/lib/modules:ro
+    restart: unless-stopped
+
+  logcollector:
+    build:
+      context: ./containers/logcollector
+      dockerfile: Dockerfile
+    container_name: logcollector
+    hostname: logcollector
+    networks:
+      - logs_network
+      - supervision_network
+    ports:
+      - "514:514/udp"
+    volumes:
+      - firewall_logs:/var/log/firewall
+    restart: unless-stopped
+
+  supervision:
+    build:
+      context: ./containers/supervision
+      dockerfile: Dockerfile
+    container_name: supervision
+    hostname: supervision
+    networks:
+      - supervision_network
+    ports:
+      - "5000:5000"
+    volumes:
+      - firewall_logs:/mnt/logs/firewall:ro
+    restart: unless-stopped
+    depends_on:
+      - logcollector
+
+  client:
+    build:
+      context: ./containers/client
+      dockerfile: Dockerfile
+    container_name: client
+    hostname: client
+    networks:
+      - firewall_network
+      - tests_network
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+
+networks:
+  firewall_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  logs_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+  supervision_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+  tests_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.0.0/16
+
+volumes:
+  firewall_logs:
+    driver: local
+
+
+

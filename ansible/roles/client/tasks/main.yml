@@ -1,0 +1,35 @@
+---
+- name: Déterminer le chemin du projet
+  set_fact:
+    project_root: "{{ playbook_dir | default('/tmp') | dirname | dirname }}"
+
+- name: Créer le répertoire pour les fichiers du client
+  file:
+    path: "{{ project_root }}/containers/client"
+    state: directory
+
+- name: Vérifier que le Dockerfile existe
+  stat:
+    path: "{{ project_root }}/containers/client/Dockerfile"
+  register: dockerfile_stat
+
+- name: Construire l'image Docker du client
+  docker_image:
+    name: "{{ client_image_name }}"
+    source: build
+    build:
+      path: "{{ project_root }}/containers/client"
+    state: present
+  when: dockerfile_stat.stat.exists
+
+- name: Vérifier que l'image a été construite
+  command: docker images {{ client_image_name }}
+  register: image_check
+  changed_when: false
+  failed_when: false
+
+- name: Afficher le statut de l'image
+  debug:
+    msg: "Image {{ client_image_name }} construite avec succès"
+  when: image_check.rc == 0
+

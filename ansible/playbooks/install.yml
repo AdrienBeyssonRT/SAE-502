@@ -1,0 +1,9 @@
+---
+- name: Installation Docker et préparation du système
+  hosts: all
+  become: yes
+  roles:
+    - docker
+
+
+

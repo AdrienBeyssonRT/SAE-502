@@ -1,0 +1,6 @@
+---
+docker_compose_file: "{{ playbook_dir }}/../docker-compose.yml"
+project_name: "autodeploy"
+
+
+

@@ -1,0 +1,109 @@
+---
+- name: Tests automatiques du pare-feu et vérification des logs
+  hosts: all
+  become: yes
+  vars:
+    firewall_host: "firewall"
+    test_ports:
+      - 22
+      - 80
+      - 443
+      - 445
+      - 3389
+  
+  tasks:
+    - name: Vérifier que les conteneurs sont en cours d'exécution
+      command: docker ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: running_containers
+      changed_when: false
+
+    - name: Afficher les conteneurs en cours d'exécution
+      debug:
+        var: running_containers.stdout_lines
+
+    - name: Test 1 - Ping vers le firewall
+      command: docker exec client ping -c 3 {{ firewall_host }}
+      register: ping_result
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher le résultat du ping
+      debug:
+        var: ping_result.stdout_lines
+
+    - name: Test 2 - Scan de ports avec nmap
+      command: docker exec client nmap -p 22,80,443,445,3389 {{ firewall_host }}
+      register: nmap_result
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher le résultat du scan
+      debug:
+        var: nmap_result.stdout_lines
+
+    - name: Test 3 - Tentative de connexion SSH
+      command: docker exec client nc -zv {{ firewall_host }} 22
+      register: ssh_test
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher le résultat du test SSH
+      debug:
+        var: ssh_test.stdout_lines
+
+    - name: Test 4 - Tentative de connexion HTTP
+      command: docker exec client curl -v --connect-timeout 5 http://{{ firewall_host }}:80
+      register: http_test
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher le résultat du test HTTP
+      debug:
+        var: http_test.stdout_lines
+
+    - name: Test 5 - Tentative de connexion SMB (devrait être bloquée)
+      command: docker exec client nc -zv {{ firewall_host }} 445
+      register: smb_test
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher le résultat du test SMB
+      debug:
+        var: smb_test.stdout_lines
+
+    - name: Attendre la propagation des logs
+      pause:
+        seconds: 3
+
+    - name: Vérifier les logs dans le collecteur
+      command: docker exec logcollector tail -n 20 /var/log/firewall/*.log
+      register: logs_check
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher les logs récents
+      debug:
+        var: logs_check.stdout_lines
+
+    - name: Vérifier l'API de supervision
+      uri:
+        url: http://localhost:5000/api/stats
+        method: GET
+      register: supervision_stats
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher les statistiques de supervision
+      debug:
+        var: supervision_stats.json
+
+    - name: Résumé des tests
+      debug:
+        msg:
+          - "Tests terminés!"
+          - "Consultez les logs ci-dessus pour voir les résultats"
+          - "Accédez à http://localhost:5000 pour voir la supervision visuelle"
+          - "Les tentatives de connexion devraient apparaître dans les logs"
+
+
+

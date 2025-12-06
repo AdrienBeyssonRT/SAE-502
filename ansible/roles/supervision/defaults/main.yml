@@ -1,0 +1,7 @@
+---
+supervision_image_name: "autodeploy-supervision"
+supervision_container_name: "supervision"
+supervision_port: 5000
+
+
+

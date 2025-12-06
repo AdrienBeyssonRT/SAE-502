@@ -1,0 +1,6 @@
+---
+client_image_name: "autodeploy-client"
+client_container_name: "client"
+
+
+

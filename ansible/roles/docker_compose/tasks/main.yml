@@ -1,0 +1,39 @@
+---
+- name: Déterminer le chemin du projet
+  set_fact:
+    project_root: "{{ playbook_dir | default('/tmp') | dirname | dirname }}"
+
+- name: Définir le chemin de docker-compose.yml
+  set_fact:
+    docker_compose_file: "{{ project_root }}/docker-compose.yml"
+
+- name: Vérifier que docker-compose.yml existe
+  stat:
+    path: "{{ docker_compose_file }}"
+  register: compose_file_stat
+
+- name: Arrêter les conteneurs existants (si présents)
+  command: docker-compose -f {{ docker_compose_file }} down
+  register: stop_result
+  changed_when: stop_result.rc == 0
+  failed_when: false
+  when: compose_file_stat.stat.exists
+
+- name: Construire et démarrer les conteneurs
+  command: docker-compose -f {{ docker_compose_file }} up -d --build
+  register: compose_up_result
+  when: compose_file_stat.stat.exists
+
+- name: Attendre que les conteneurs soient prêts
+  pause:
+    seconds: 10
+
+- name: Vérifier le statut des conteneurs
+  command: docker-compose -f {{ docker_compose_file }} ps
+  register: container_status
+  changed_when: false
+
+- name: Afficher le statut des conteneurs
+  debug:
+    var: container_status.stdout_lines
+

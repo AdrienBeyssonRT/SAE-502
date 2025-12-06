@@ -1,0 +1,12 @@
+---
+docker_compose_version: "2.24.0"
+docker_packages:
+  - docker.io
+  - docker-compose
+  - python3-pip
+docker_pip_packages:
+  - docker
+  - docker-compose
+
+
+

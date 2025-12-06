@@ -1,0 +1,53 @@
+---
+- name: Mise à jour dynamique des règles UFW
+  hosts: all
+  become: yes
+  vars:
+    internal_network: "172.20.0.0/16"
+    logging_level: "high"
+  
+  tasks:
+    - name: Vérifier que le conteneur firewall est en cours d'exécution
+      command: docker ps --filter name=firewall --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: firewall_container
+      changed_when: false
+
+    - name: Arrêter le conteneur firewall pour reconfiguration
+      command: docker stop firewall
+      when: firewall_container.stdout == "firewall"
+
+    - name: Déterminer le chemin du projet
+      set_fact:
+        project_root: "{{ playbook_dir | dirname | dirname }}"
+
+    - name: Mettre à jour les règles UFW dans le script
+      template:
+        src: "{{ playbook_dir | dirname }}/roles/firewall/templates/setup-ufw.sh.j2"
+        dest: "{{ project_root }}/containers/firewall/setup-ufw.sh"
+        mode: '0755'
+
+    - name: Reconstruire l'image firewall
+      docker_image:
+        name: autodeploy-firewall
+        source: build
+        build:
+          path: "{{ project_root }}/containers/firewall"
+        state: present
+
+    - name: Redémarrer le conteneur firewall
+      command: docker start firewall
+      when: firewall_container.stdout == "firewall"
+
+    - name: Attendre que le firewall soit prêt
+      pause:
+        seconds: 5
+
+    - name: Vérifier les règles UFW
+      command: docker exec firewall ufw status verbose
+      register: ufw_status
+      changed_when: false
+
+    - name: Afficher le statut UFW
+      debug:
+        var: ufw_status.stdout_lines
+
