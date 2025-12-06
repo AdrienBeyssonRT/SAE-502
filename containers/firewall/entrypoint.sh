@@ -5,6 +5,10 @@ set -e
 
 echo "Démarrage du conteneur firewall..."
 
+# Créer les répertoires nécessaires pour rsyslog
+mkdir -p /var/lib/rsyslog
+chmod 755 /var/lib/rsyslog
+
 # Démarrer rsyslog en arrière-plan
 echo "Démarrage de rsyslog..."
 rsyslogd

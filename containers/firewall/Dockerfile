@@ -10,6 +10,10 @@ RUN apt-get update && \
 # Configure rsyslog to forward logs
 COPY rsyslog.conf /etc/rsyslog.conf
 
+# Créer le répertoire rsyslog
+RUN mkdir -p /var/lib/rsyslog && \
+    chmod 755 /var/lib/rsyslog
+
 # Copy UFW rules script
 COPY setup-ufw.sh /usr/local/bin/setup-ufw.sh
 RUN chmod +x /usr/local/bin/setup-ufw.sh

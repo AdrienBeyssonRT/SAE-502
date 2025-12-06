@@ -10,9 +10,11 @@ RUN apt-get update && \
 # Configuration rsyslog serveur
 COPY rsyslog.conf /etc/rsyslog.conf
 
-# Créer le répertoire de logs
+# Créer les répertoires nécessaires
 RUN mkdir -p /var/log/firewall && \
-    chmod 755 /var/log/firewall
+    mkdir -p /var/lib/rsyslog && \
+    chmod 755 /var/log/firewall && \
+    chmod 755 /var/lib/rsyslog
 
 # Exposer le port UDP 514
 EXPOSE 514/udp
