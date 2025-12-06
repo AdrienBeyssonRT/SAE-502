@@ -1,7 +1,7 @@
 ---
 - name: Déterminer le chemin du projet
   set_fact:
-    project_root: "{{ playbook_dir | default('/tmp') | dirname | dirname }}"
+    project_root: "{{ playbook_dir | dirname | dirname | default(ansible_env.PWD | default('/tmp')) }}"
 
 - name: Définir le chemin de docker-compose.yml
   set_fact:
@@ -15,7 +15,7 @@
 - name: Arrêter les conteneurs existants (si présents)
   command: docker-compose -f {{ docker_compose_file }} down
   register: stop_result
-  changed_when: stop_result.rc == 0
+  changed_when: false
   failed_when: false
   when: compose_file_stat.stat.exists
 

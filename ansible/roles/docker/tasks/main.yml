@@ -9,10 +9,11 @@
     name: "{{ docker_packages }}"
     state: present
 
-- name: Install Python Docker modules
+- name: Install Python Docker modules via pip
   pip:
     name: "{{ docker_pip_packages }}"
     state: present
+    extra_args: "--break-system-packages"
 
 - name: Add current user to docker group
   user:

@@ -4,6 +4,7 @@ docker_packages:
   - docker.io
   - docker-compose
   - python3-pip
+  - python3-docker
 docker_pip_packages:
   - docker
   - docker-compose
