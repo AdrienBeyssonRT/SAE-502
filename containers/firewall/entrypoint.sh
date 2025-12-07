@@ -20,8 +20,8 @@ rsyslogd
 # Attendre que rsyslog soit prêt
 sleep 2
 
-# Tester l'envoi d'un log de test
-logger "Firewall démarré - rsyslog opérationnel"
+# Tester l'envoi d'un log de test vers le logcollector
+logger -n logcollector -P 514 -d "Firewall démarré - rsyslog opérationnel"
 
 # Attendre que rsyslog soit prêt
 sleep 2

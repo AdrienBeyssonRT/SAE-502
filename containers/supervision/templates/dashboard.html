@@ -150,7 +150,10 @@
         
         <div class="card">
             <h2>Logs en Temps Réel</h2>
-            <button class="refresh-btn" onclick="loadLogs()">🔄 Actualiser</button>
+            <div style="margin-bottom: 10px;">
+                <button class="refresh-btn" onclick="loadLogs()">🔄 Actualiser</button>
+                <a href="/api/debug" target="_blank" style="margin-left: 10px; color: #667eea; text-decoration: none;">🔍 Debug</a>
+            </div>
             <div class="logs-container" id="logs-container">
                 <div class="loading">Chargement des logs...</div>
             </div>
@@ -186,7 +189,19 @@
                 .then(logs => {
                     const container = document.getElementById('logs-container');
                     if (logs.length === 0) {
-                        container.innerHTML = '<div class="loading">Aucun log disponible</div>';
+                        container.innerHTML = `
+                            <div class="loading">
+                                <p>Aucun log disponible pour le moment.</p>
+                                <p style="margin-top: 10px; font-size: 0.9em;">
+                                    Pour générer des logs, exécutez depuis le conteneur client:<br>
+                                    <code>docker exec -it client bash</code><br>
+                                    <code>nmap -p 445 firewall</code><br>
+                                    <code>nc -zv firewall 445</code>
+                                </p>
+                                <p style="margin-top: 10px;">
+                                    <a href="/api/debug" target="_blank" style="color: #667eea;">Vérifier l'état du système (debug)</a>
+                                </p>
+                            </div>`;
                         return;
                     }
                     container.innerHTML = logs.map(formatLogEntry).join('');
@@ -194,7 +209,12 @@
                 .catch(error => {
                     console.error('Erreur:', error);
                     document.getElementById('logs-container').innerHTML = 
-                        '<div class="loading">Erreur de chargement des logs</div>';
+                        `<div class="loading">
+                            <p>Erreur de chargement des logs: ${error.message}</p>
+                            <p style="margin-top: 10px;">
+                                <a href="/api/debug" target="_blank" style="color: #667eea;">Vérifier l'état du système (debug)</a>
+                            </p>
+                        </div>`;
                 });
         }
         

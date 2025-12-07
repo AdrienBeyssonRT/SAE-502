@@ -387,3 +387,4 @@ Si vous rencontrez un problème :
 3. Relisez la section "Résolution de problèmes" ci-dessus
 4. Vérifiez que vous êtes dans le bon répertoire
 
+

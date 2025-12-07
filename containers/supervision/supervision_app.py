@@ -22,8 +22,14 @@ def parse_log_line(line):
     if not line.strip():
         return None
     
-    # Ignorer les lignes qui ne contiennent pas UFW
-    if 'UFW' not in line and 'ufw' not in line.lower():
+    # Accepter toutes les lignes qui contiennent des informations réseau
+    # Pas seulement UFW, mais aussi les logs kernel qui peuvent contenir des infos réseau
+    has_network_info = any(keyword in line.upper() for keyword in [
+        'UFW', 'SRC=', 'DST=', 'DPT=', 'SPT=', 'PROTO=', 'BLOCK', 'ALLOW', 
+        'IN=', 'OUT=', 'TCP', 'UDP', 'ICMP'
+    ])
+    
+    if not has_network_info:
         return None
     
     # Format typique: Dec  6 18:30:15 firewall kernel: [UFW BLOCK] IN=eth0 OUT= MAC=... SRC=192.168.1.100 DST=192.168.1.1 LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=12345 DF PROTO=TCP SPT=12345 DPT=22 WINDOW=29200 RES=0x00 SYN URGP=0
@@ -90,8 +96,19 @@ def parse_log_line(line):
         except:
             pass
     
-    # Si on a au moins une action ou une IP, c'est un log valide
-    if log_entry['action'] or log_entry['src_ip']:
+    # Si on a au moins une action, une IP, un port ou un protocole, c'est un log valide
+    if log_entry['action'] or log_entry['src_ip'] or log_entry['dport'] or log_entry['protocol']:
+        return log_entry
+    
+    # Si la ligne contient des informations réseau mais n'a pas été parsée, créer un log basique
+    # Vérifier à nouveau has_network_info
+    has_network_info_check = any(keyword in line.upper() for keyword in [
+        'UFW', 'SRC=', 'DST=', 'DPT=', 'SPT=', 'PROTO=', 'BLOCK', 'ALLOW', 
+        'IN=', 'OUT=', 'TCP', 'UDP', 'ICMP'
+    ])
+    if has_network_info_check:
+        log_entry['action'] = 'UNKNOWN'
+        log_entry['raw'] = line[:200]  # Limiter la taille
         return log_entry
     
     return None
@@ -108,15 +125,30 @@ def get_recent_logs(limit=1000):
     log_files = glob.glob(os.path.join(LOG_DIR, "*.log"))
     if not log_files:
         print(f"Aucun fichier de log trouvé dans {LOG_DIR}")
+        # Essayer de lister le contenu du répertoire
+        try:
+            dir_contents = os.listdir(LOG_DIR)
+            print(f"Contenu de {LOG_DIR}: {dir_contents}")
+        except:
+            pass
         return logs
     
     log_files.sort(reverse=True)  # Plus récents en premier
+    
+    # Prioriser les fichiers firewall_*.log
+    firewall_logs = [f for f in log_files if 'firewall_' in os.path.basename(f)]
+    other_logs = [f for f in log_files if 'firewall_' not in os.path.basename(f)]
+    log_files = firewall_logs + other_logs
     
     for log_file in log_files[:10]:  # Limiter aux 10 fichiers les plus récents
         try:
             with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
+                print(f"Lecture de {log_file}: {len(lines)} lignes")
                 for line in lines:
+                    # Ignorer les logs rsyslog internes
+                    if any(keyword in line for keyword in ['rsyslogd:', 'imjournal:', 'imuxsock:', 'environment variable']):
+                        continue
                     parsed = parse_log_line(line)
                     if parsed:
                         logs.append(parsed)
@@ -125,6 +157,7 @@ def get_recent_logs(limit=1000):
     
     # Trier par timestamp (plus récent en premier)
     logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+    print(f"Total de {len(logs)} logs parsés")
     return logs[:limit]
 
 def get_statistics():
