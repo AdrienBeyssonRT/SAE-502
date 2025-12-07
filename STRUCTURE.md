@@ -7,8 +7,8 @@ SAE502 final/
 │
 ├── ansible.cfg                    # Configuration Ansible
 ├── docker-compose.yml             # Orchestration des conteneurs Docker
-├── README.md                      # Documentation principale du projet
-├── INSTALLATION.md                # Guide d'installation détaillé
+├── deploy-all.sh                  # Script unique : installation + déploiement + tests
+├── DEPLOIEMENT.md                 # Guide complet de déploiement
 ├── STRUCTURE.md                   # Ce fichier - Structure du projet
 ├── PROJET.md                      # Compte rendu du projet
 │
@@ -18,8 +18,8 @@ SAE502 final/
 │   ├── playbooks/                 # Playbooks Ansible
 │   │   ├── install.yml            # Installation Docker et préparation système
 │   │   ├── deploy.yml             # Déploiement complet de l'infrastructure
-│   │   ├── rules_update.yml       # Mise à jour dynamique des règles UFW
-│   │   └── tests.yml              # Tests automatiques du pare-feu
+│   │   ├── deploy-and-test.yml    # Déploiement complet avec tests automatiques
+│   │   └── rules_update.yml       # Mise à jour dynamique des règles UFW
 │   │
 │   └── roles/                     # Rôles Ansible
 │       ├── docker/                # Rôle : Installation Docker
@@ -74,12 +74,8 @@ SAE502 final/
     └── client/                    # Conteneur client de test
         ├── Dockerfile
         ├── entrypoint.sh
-        ├── generate-traffic.sh    # Script pour générer du trafic
-        ├── test-rules-ufw.sh      # Script de test des règles UFW
-        └── test_scripts/          # Scripts de test
-            ├── test_ssh.sh
-            ├── test_ports.sh
-            └── test_web.sh
+        ├── force-ufw-logs.sh      # Script optimisé pour générer des logs UFW
+        └── test-rules-ufw.sh      # Script de test des règles UFW
 ```
 
 ## Description des composants
@@ -93,8 +89,16 @@ SAE502 final/
 
 - **install.yml** : Installe Docker et prépare le système
 - **deploy.yml** : Déploie toute l'infrastructure (images + conteneurs)
+- **deploy-and-test.yml** : Déploiement complet avec tests automatiques et vérification
 - **rules_update.yml** : Met à jour dynamiquement les règles UFW
-- **tests.yml** : Exécute des tests automatiques et vérifie les logs
+
+### Scripts d'automatisation
+
+- **deploy-all.sh** : Script unique qui fait tout automatiquement :
+  - Installation des dépendances (Python, Ansible, Docker)
+  - Mise à jour du système
+  - Déploiement complet via Ansible
+  - Tests et vérifications
 
 ### Rôles Ansible
 
@@ -112,13 +116,22 @@ Chaque conteneur contient :
 
 ## Flux de déploiement
 
-1. **install.yml** → Installe Docker sur la machine
-2. **deploy.yml** → 
+### Méthode automatique (recommandée)
+
+1. **deploy-all.sh** → Fait tout automatiquement :
+   - Installe toutes les dépendances (Python, Ansible, Docker)
+   - Met à jour le système
+   - Exécute `deploy-and-test.yml` pour déployer et tester
+
+### Méthode manuelle
+
+1. Installer manuellement : Python 3, pip, Ansible, Docker, Docker Compose
+2. **deploy-and-test.yml** → 
    - Construit les images Docker de tous les conteneurs
    - Lance l'infrastructure complète via docker-compose
    - Configure automatiquement UFW avec les règles
+   - Génère du trafic et vérifie les logs
 3. **rules_update.yml** → Met à jour les règles UFW si nécessaire
-4. **tests.yml** → Vérifie le bon fonctionnement
 
 ## Réseaux Docker
 

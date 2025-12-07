@@ -40,12 +40,7 @@ logger -n logcollector -P 514 -d "Firewall démarré - $(date)"
 
 # Garder le conteneur actif
 echo "Conteneur firewall opérationnel."
-echo ""
-echo "Pour voir les logs UFW en temps réel:"
-echo "  docker exec firewall tail -f /var/log/kern.log | grep UFW"
-echo ""
-echo "Pour tester la génération de logs:"
-echo "  docker exec client bash /usr/local/bin/generate-traffic.sh"
+echo "Pour voir les logs UFW: docker exec firewall tail -f /var/log/kern.log | grep UFW"
 sleep infinity
 
 

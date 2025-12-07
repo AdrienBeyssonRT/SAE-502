@@ -1,31 +1,20 @@
 #!/bin/bash
-# Script pour forcer la génération de logs UFW avec de vraies connexions TCP
+# Script optimisé pour générer des logs UFW avec de vraies connexions TCP
+# Utilisé par le playbook deploy-and-test.yml
 
-FIREWALL_IP="firewall"
-echo "=== Génération de logs UFW avec connexions TCP réelles ==="
-echo ""
+FIREWALL_IP="${1:-firewall}"
+ITERATIONS="${2:-5}"
 
-# Générer plusieurs tentatives sur différents ports bloqués
+# Générer plusieurs tentatives sur les ports bloqués (445, 3389, 139, 80)
 for port in 445 3389 139 80; do
-    echo "Test port $port (devrait être BLOQUÉ)..."
-    for i in {1..3}; do
+    for i in $(seq 1 $ITERATIONS); do
         timeout 1 bash -c "</dev/tcp/$FIREWALL_IP/$port" 2>&1 || true
-        sleep 0.5
+        sleep 0.2
     done
-    sleep 1
 done
 
-# Test port 22 (devrait être autorisé depuis réseau interne)
-echo ""
-echo "Test port 22 (devrait être AUTORISÉ depuis réseau interne)..."
+# Test port 22 (autorisé depuis réseau interne)
 timeout 2 bash -c "</dev/tcp/$FIREWALL_IP/22" 2>&1 || true
 
-echo ""
-echo "=== Tests terminés ==="
-echo ""
-echo "Attendez 3-5 secondes puis vérifiez:"
-echo "  1. Logs dans le firewall: docker exec firewall tail -30 /var/log/kern.log | grep -i ufw"
-echo "  2. Logs dans le collecteur: docker exec logcollector tail -20 /var/log/firewall/*.log | grep -i ufw"
-echo "  3. Interface web: http://localhost:5000"
 
 

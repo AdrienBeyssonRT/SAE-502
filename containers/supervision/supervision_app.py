@@ -65,25 +65,53 @@ def parse_log_line(line):
         'raw': line
     }
     
-    # Détecter les actions UFW explicites
-    if '[UFW BLOCK]' in line or 'UFW BLOCK' in line_upper:
+    # Détecter les actions UFW explicites (PRIORITÉ ABSOLUE)
+    # Format 1: [UFW BLOCK], [UFW ALLOW], [UFW LIMIT]
+    if '[UFW BLOCK]' in line:
         log_entry['action'] = 'BLOCK'
-    elif '[UFW ALLOW]' in line or 'UFW ALLOW' in line_upper:
+    elif '[UFW ALLOW]' in line:
         log_entry['action'] = 'ALLOW'
-    elif '[UFW LIMIT]' in line or 'UFW LIMIT' in line_upper:
+    elif '[UFW LIMIT]' in line:
         log_entry['action'] = 'LIMIT'
-    # Si pas d'action UFW explicite mais présence de mots-clés réseau, essayer de deviner
-    elif 'SRC=' in line and 'DST=' in line:
-        # C'est probablement un log réseau, essayer de déterminer l'action
-        if 'BLOCK' in line_upper or 'DENY' in line_upper:
-            log_entry['action'] = 'BLOCK'
-        elif 'ALLOW' in line_upper or 'ACCEPT' in line_upper:
-            log_entry['action'] = 'ALLOW'
-        elif 'LIMIT' in line_upper:
-            log_entry['action'] = 'LIMIT'
+    # Format 2: UFW BLOCK, UFW ALLOW, UFW LIMIT (sans crochets)
+    elif 'UFW BLOCK' in line_upper and '[' not in line:
+        log_entry['action'] = 'BLOCK'
+    elif 'UFW ALLOW' in line_upper and '[' not in line:
+        log_entry['action'] = 'ALLOW'
+    elif 'UFW LIMIT' in line_upper and '[' not in line:
+        log_entry['action'] = 'LIMIT'
+    # Format 3: Si on a des infos réseau (SRC=, DST=, DPT=), déterminer l'action
+    elif 'SRC=' in line and ('DST=' in line or 'DPT=' in line):
+        # Si c'est un port bloqué par défaut (445, 3389, 139, 137, 138, 80), c'est probablement un BLOCK
+        dport_match_temp = re.search(r'DPT[=:](\d+)', line)
+        if dport_match_temp:
+            blocked_port = dport_match_temp.group(1)
+            if blocked_port in ['445', '3389', '139', '137', '138', '80']:
+                log_entry['action'] = 'BLOCK'
+            elif blocked_port == '22':
+                # Port 22 depuis réseau interne = ALLOW
+                log_entry['action'] = 'ALLOW'
+            else:
+                # Autre port, essayer de déterminer
+                if 'BLOCK' in line_upper or 'DENY' in line_upper:
+                    log_entry['action'] = 'BLOCK'
+                elif 'ALLOW' in line_upper or 'ACCEPT' in line_upper:
+                    log_entry['action'] = 'ALLOW'
+                elif 'LIMIT' in line_upper:
+                    log_entry['action'] = 'LIMIT'
+                else:
+                    # Par défaut, si on a SRC= et DPT=, c'est probablement un BLOCK (trafic entrant bloqué)
+                    log_entry['action'] = 'BLOCK'
         else:
-            # Log réseau sans action claire - probablement un log kernel
-            log_entry['action'] = 'NETWORK'
+            # Pas de port, essayer de déterminer par les mots-clés
+            if 'BLOCK' in line_upper or 'DENY' in line_upper:
+                log_entry['action'] = 'BLOCK'
+            elif 'ALLOW' in line_upper or 'ACCEPT' in line_upper:
+                log_entry['action'] = 'ALLOW'
+            elif 'LIMIT' in line_upper:
+                log_entry['action'] = 'LIMIT'
+            else:
+                log_entry['action'] = 'NETWORK'
     
     # Extraire IP source (plusieurs formats possibles)
     src_match = re.search(r'SRC[=:](\d+\.\d+\.\d+\.\d+)', line)
@@ -140,9 +168,20 @@ def parse_log_line(line):
     
     # Si on a au moins une IP source ou un port destination, c'est un log réseau valide
     if log_entry['src_ip'] or log_entry['dport']:
-        # Si pas d'action détectée mais qu'on a des infos réseau, marquer comme NETWORK
+        # Si pas d'action détectée, essayer de la déterminer par le port
         if not log_entry['action']:
-            log_entry['action'] = 'NETWORK'
+            if log_entry['dport']:
+                # Ports bloqués par défaut dans notre configuration
+                blocked_ports = ['445', '3389', '139', '137', '138', '80']
+                if log_entry['dport'] in blocked_ports:
+                    log_entry['action'] = 'BLOCK'
+                # Port 22 depuis réseau interne = ALLOW
+                elif log_entry['dport'] == '22':
+                    log_entry['action'] = 'ALLOW'
+                else:
+                    log_entry['action'] = 'NETWORK'
+            else:
+                log_entry['action'] = 'NETWORK'
         return log_entry
     
     # Si on a un protocole et une action, c'est aussi valide

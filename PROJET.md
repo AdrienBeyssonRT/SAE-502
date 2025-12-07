@@ -229,8 +229,7 @@ Le projet est prêt pour la démonstration et l'évaluation. Il constitue une so
 
 ## 📚 Documentation du projet
 
-- **README.md** : Documentation principale et vue d'ensemble
-- **INSTALLATION.md** : Guide d'installation détaillé étape par étape
+- **DEPLOIEMENT.md** : Guide complet de déploiement avec toutes les explications
 - **STRUCTURE.md** : Arborescence complète et description des composants
 - **PROJET.md** : Ce compte rendu détaillé
 
