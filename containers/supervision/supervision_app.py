@@ -22,13 +22,18 @@ def parse_log_line(line):
     if not line.strip():
         return None
     
+    # Convertir en majuscules une seule fois
+    line_upper = line.upper()
+    
     # Ignorer les logs rsyslog internes et les logs de bridge Docker
     if any(keyword in line for keyword in [
         'rsyslogd:', 'imjournal:', 'imuxsock:', 'environment variable', 'TZ is not set',
         'entered blocking state', 'entered disabled state', 'entered forwarding state',
-        'br-', 'veth', 'port 2(', 'port 3(', 'port 4('
+        'br-', 'veth', 'port 2(', 'port 3(', 'port 4(', 'kernel: [', 'kernel: *'
     ]):
-        return None
+        # Mais garder les logs UFW même s'ils contiennent "kernel:"
+        if '[UFW' not in line and 'UFW BLOCK' not in line_upper and 'UFW ALLOW' not in line_upper:
+            return None
     
     # PRIORITÉ : Chercher spécifiquement les logs UFW
     # Les logs UFW contiennent toujours "[UFW" ou "UFW BLOCK" ou "UFW ALLOW"
@@ -59,9 +64,6 @@ def parse_log_line(line):
         'dport': None,
         'raw': line
     }
-    
-    # Extraire l'action UFW (plusieurs formats possibles)
-    line_upper = line.upper()
     
     # Détecter les actions UFW explicites
     if '[UFW BLOCK]' in line or 'UFW BLOCK' in line_upper:

@@ -1,0 +1,159 @@
+---
+- name: Test complet automatisé du système de logs UFW
+  hosts: all
+  become: yes
+  vars:
+    firewall_host: "firewall"
+    client_container: "client"
+    firewall_container: "firewall"
+    logcollector_container: "logcollector"
+  
+  tasks:
+    - name: Vérifier que les conteneurs sont en cours d'exécution
+      command: docker ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: running_containers
+      changed_when: false
+
+    - name: Afficher les conteneurs en cours d'exécution
+      debug:
+        msg: "Conteneurs en cours d'exécution: {{ running_containers.stdout_lines }}"
+
+    - name: Vérifier le statut UFW
+      command: docker exec {{ firewall_container }} ufw status verbose
+      register: ufw_status
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher le statut UFW
+      debug:
+        var: ufw_status.stdout_lines
+
+    - name: Activer le logging UFW si nécessaire
+      command: docker exec {{ firewall_container }} ufw logging high
+      when: "'Logging: on (high)' not in ufw_status.stdout"
+      changed_when: true
+
+    - name: Nettoyer les anciens logs pour un test propre
+      command: docker exec {{ firewall_container }} sh -c "echo '' > /var/log/kern.log"
+      changed_when: false
+      failed_when: false
+
+    - name: Générer du trafic pour créer des logs UFW
+      shell: |
+        docker exec {{ client_container }} bash -c "
+          for port in 445 3389 139 80; do
+            for i in {1..5}; do
+              timeout 1 bash -c '</dev/tcp/{{ firewall_host }}/$port' 2>&1 || true
+              sleep 0.2
+            done
+          done
+          timeout 2 bash -c '</dev/tcp/{{ firewall_host }}/22' 2>&1 || true
+        "
+      register: traffic_result
+      changed_when: false
+      failed_when: false
+
+    - name: Attendre que les logs soient écrits
+      pause:
+        seconds: 3
+
+    - name: Vérifier les logs UFW dans le firewall
+      command: docker exec {{ firewall_container }} tail -50 /var/log/kern.log | grep -i ufw
+      register: ufw_logs
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher les logs UFW trouvés
+      debug:
+        msg: "{{ ufw_logs.stdout_lines }}"
+      when: ufw_logs.stdout_lines | length > 0
+
+    - name: Vérifier le nombre de logs UFW
+      debug:
+        msg: "{{ ufw_logs.stdout_lines | length }} logs UFW trouvés dans le firewall"
+      when: ufw_logs.stdout_lines | length > 0
+
+    - name: Avertir si aucun log UFW trouvé
+      debug:
+        msg:
+          - "⚠️  ATTENTION: Aucun log UFW trouvé dans le firewall"
+          - "Vérifiez que UFW est actif et que le logging est activé"
+          - "Commandes de diagnostic:"
+          - "  docker exec {{ firewall_container }} ufw status verbose"
+          - "  docker exec {{ firewall_container }} tail -20 /var/log/kern.log"
+      when: ufw_logs.stdout_lines | length == 0
+
+    - name: Attendre que les logs soient envoyés au collecteur
+      pause:
+        seconds: 2
+
+    - name: Vérifier les logs dans le collecteur
+      shell: docker exec {{ logcollector_container }} sh -c "tail -50 /var/log/firewall/*.log 2>/dev/null | grep -i ufw" || echo ""
+      register: collector_logs
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher les logs du collecteur
+      debug:
+        msg: "{{ collector_logs.stdout_lines }}"
+      when: collector_logs.stdout_lines | length > 0
+
+    - name: Vérifier le nombre de logs dans le collecteur
+      debug:
+        msg: "{{ collector_logs.stdout_lines | length }} logs UFW trouvés dans le collecteur"
+      when: collector_logs.stdout_lines | length > 0
+
+    - name: Vérifier l'API de supervision
+      uri:
+        url: http://localhost:5000/api/stats
+        method: GET
+      register: supervision_stats
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher les statistiques de supervision
+      debug:
+        msg:
+          - "Statistiques de supervision:"
+          - "  Total de logs: {{ supervision_stats.json.total | default(0) }}"
+          - "  Tentatives bloquées: {{ supervision_stats.json.blocked_attempts | default(0) }}"
+          - "  Connexions autorisées: {{ supervision_stats.json.allowed_connections | default(0) }}"
+          - "  Par action: {{ supervision_stats.json.by_action | default({}) }}"
+      when: supervision_stats.json is defined
+
+    - name: Vérifier l'API de debug
+      uri:
+        url: http://localhost:5000/api/debug
+        method: GET
+      register: debug_info
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher les informations de debug
+      debug:
+        msg:
+          - "Informations de debug:"
+          - "  Répertoire de logs: {{ debug_info.json.log_dir | default('N/A') }}"
+          - "  Répertoire existe: {{ debug_info.json.log_dir_exists | default(false) }}"
+          - "  Fichiers de logs: {{ debug_info.json.log_files | default([]) }}"
+          - "  Total de lignes: {{ debug_info.json.total_lines | default(0) }}"
+          - "  Logs parsés: {{ debug_info.json.parsed_count | default(0) }}"
+      when: debug_info.json is defined
+
+    - name: Résumé final
+      debug:
+        msg:
+          - "=========================================="
+          - "  RÉSUMÉ DU TEST"
+          - "=========================================="
+          - "✅ Conteneurs: OK"
+          - "{{ '✅' if (ufw_logs.stdout_lines | length > 0) else '❌' }} Logs UFW dans le firewall: {{ (ufw_logs.stdout_lines | length) }} logs"
+          - "{{ '✅' if (collector_logs.stdout_lines | length > 0) else '⚠️ ' }} Logs dans le collecteur: {{ (collector_logs.stdout_lines | length) }} logs"
+          - "{{ '✅' if (supervision_stats.json.total | default(0) > 0) else '⚠️ ' }} Interface web: {{ supervision_stats.json.total | default(0) }} logs parsés"
+          - ""
+          - "🌐 Accédez à http://localhost:5000 pour voir l'interface de supervision"
+          - ""
+          - "Pour voir les logs en temps réel:"
+          - "  docker exec {{ firewall_container }} tail -f /var/log/kern.log | grep UFW"
+          - "  docker exec {{ logcollector_container }} tail -f /var/log/firewall/*.log | grep UFW"
+

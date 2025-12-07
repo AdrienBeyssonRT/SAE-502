@@ -195,34 +195,62 @@ nc -zv -w 2 firewall 445
 exit
 ```
 
-### Option B : Tests automatiques
+### Option B : Test complet automatisé (RECOMMANDÉ)
+
+**Une seule commande pour tout tester automatiquement :**
 
 ```bash
-# Lancer les tests automatiques
-ansible-playbook ansible/playbooks/tests.yml
+# Option B1 : Script bash (le plus simple)
+chmod +x test-complet.sh
+./test-complet.sh
 ```
 
-Ce playbook va :
-- Vérifier le statut UFW et le logging
-- Générer des connexions TCP réelles pour créer des logs UFW
-- Vérifier que les logs sont générés dans le firewall
-- Vérifier que les logs sont envoyés au collecteur
-- Vérifier que la supervision reçoit les données
-
-### Option C : Script de génération de logs
+**OU**
 
 ```bash
-# Utiliser le script pour forcer la génération de logs UFW
+# Option B2 : Playbook Ansible (plus détaillé)
+ansible-playbook ansible/playbooks/test-complet.yml
+```
+
+Ces commandes vont automatiquement :
+- ✅ Vérifier que tous les conteneurs sont en cours d'exécution
+- ✅ Vérifier et activer le logging UFW si nécessaire
+- ✅ Générer du trafic TCP réel pour créer des logs UFW
+- ✅ Vérifier que les logs sont générés dans le firewall
+- ✅ Vérifier que les logs sont envoyés au collecteur
+- ✅ Vérifier que la supervision reçoit et parse les données
+- ✅ Afficher un résumé complet avec statistiques
+
+**Résultat attendu :**
+- Des logs UFW dans `/var/log/kern.log` du firewall
+- Des logs dans `/var/log/firewall/*.log` du collecteur
+- Des logs parsés et catégorisés dans l'interface web (http://localhost:5000)
+
+### Option C : Tests manuels étape par étape
+
+Si vous préférez tester manuellement :
+
+```bash
+# 1. Vérifier le statut UFW
+docker exec firewall ufw status verbose
+
+# 2. Activer le logging si nécessaire
+docker exec firewall ufw logging high
+
+# 3. Générer du trafic
 docker exec client bash /usr/local/bin/force-ufw-logs.sh
 
-# Attendre 5 secondes
+# 4. Attendre 5 secondes
 sleep 5
 
-# Vérifier les logs dans le firewall
+# 5. Vérifier les logs dans le firewall
 docker exec firewall tail -30 /var/log/kern.log | grep -i ufw
 
-# Vérifier les logs dans le collecteur
+# 6. Vérifier les logs dans le collecteur
 docker exec logcollector tail -20 /var/log/firewall/*.log | grep -i ufw
+
+# 7. Vérifier l'interface web
+curl http://localhost:5000/api/stats
 ```
 
 ---
