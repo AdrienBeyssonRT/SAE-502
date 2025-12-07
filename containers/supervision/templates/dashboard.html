@@ -91,16 +91,112 @@
             background: #f8f9fa;
         }
         .log-info {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            margin-top: 5px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
         }
         .log-info span {
             background: #e9ecef;
-            padding: 3px 8px;
+            padding: 5px 10px;
             border-radius: 3px;
             font-size: 0.85em;
+            display: flex;
+            align-items: center;
+        }
+        .log-info span strong {
+            margin-right: 5px;
+            color: #495057;
+        }
+        .log-raw {
+            margin-top: 10px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-size: 0.8em;
+            color: #6c757d;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .action-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.85em;
+            text-transform: uppercase;
+        }
+        .action-badge.block {
+            background: #dc3545;
+            color: white;
+        }
+        .action-badge.allow {
+            background: #28a745;
+            color: white;
+        }
+        .action-badge.limit {
+            background: #ffc107;
+            color: #000;
+        }
+        .action-badge.network {
+            background: #17a2b8;
+            color: white;
+        }
+        .action-badge.unknown {
+            background: #6c757d;
+            color: white;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .stat-item-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .stat-item-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .top-ips, .top-ports {
+            margin-top: 15px;
+        }
+        .top-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .top-item:last-child {
+            border-bottom: none;
+        }
+        .expand-btn {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+        .expand-btn:hover {
+            text-decoration: underline;
         }
         .refresh-btn {
             background: #667eea;
@@ -132,27 +228,46 @@
         
         <div class="dashboard">
             <div class="card">
-                <h2>Total Logs</h2>
-                <div class="stat" id="total-logs">0</div>
-                <div class="stat-label">Événements enregistrés</div>
+                <h2>📊 Vue d'ensemble</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-item-label">Total Logs</div>
+                        <div class="stat-item-value" id="total-logs">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-item-label">Tentatives Bloquées</div>
+                        <div class="stat-item-value" id="blocked">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-item-label">Connexions Autorisées</div>
+                        <div class="stat-item-value" id="allowed">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-item-label">IP Sources Uniques</div>
+                        <div class="stat-item-value" id="src-ips">0</div>
+                    </div>
+                </div>
             </div>
             
             <div class="card">
-                <h2>Tentatives Bloquées</h2>
-                <div class="stat" id="blocked">0</div>
-                <div class="stat-label">Connexions refusées</div>
+                <h2>🌐 Top IP Sources</h2>
+                <div class="top-ips" id="top-ips">
+                    <div class="loading">Chargement...</div>
+                </div>
             </div>
             
             <div class="card">
-                <h2>Connexions Autorisées</h2>
-                <div class="stat" id="allowed">0</div>
-                <div class="stat-label">Trafic autorisé</div>
+                <h2>🔌 Top Ports Ciblés</h2>
+                <div class="top-ports" id="top-ports">
+                    <div class="loading">Chargement...</div>
+                </div>
             </div>
             
             <div class="card">
-                <h2>IP Sources</h2>
-                <div class="stat" id="src-ips">0</div>
-                <div class="stat-label">Adresses IP uniques</div>
+                <h2>📈 Répartition par Protocole</h2>
+                <div id="protocol-stats">
+                    <div class="loading">Chargement...</div>
+                </div>
             </div>
         </div>
         
@@ -169,26 +284,52 @@
     </div>
 
     <script>
-        function formatLogEntry(log) {
-            const actionClass = log.action ? log.action.toLowerCase() : '';
+        function formatLogEntry(log, index) {
+            const actionClass = log.action ? log.action.toLowerCase() : 'unknown';
             const actionBadge = log.action || 'UNKNOWN';
             const srcIp = log.src_ip || 'N/A';
             const dstIp = log.dst_ip || 'N/A';
             const protocol = log.protocol || 'N/A';
+            const sport = log.sport || 'N/A';
             const dport = log.dport || 'N/A';
             const timestamp = log.timestamp || new Date().toLocaleString();
+            const raw = log.raw || '';
+            const logId = `log-${index}`;
             
             return `
                 <div class="log-entry ${actionClass}">
-                    <strong>[${actionBadge}]</strong> ${timestamp}
-                    <div class="log-info">
-                        <span>Source: ${srcIp}</span>
-                        <span>Destination: ${dstIp}</span>
-                        <span>Protocole: ${protocol}</span>
-                        <span>Port: ${dport}</span>
+                    <div class="log-header">
+                        <div>
+                            <span class="action-badge ${actionClass}">${actionBadge}</span>
+                            <span style="margin-left: 10px; color: #666; font-size: 0.9em;">${timestamp}</span>
+                        </div>
                     </div>
+                    <div class="log-info">
+                        <span><strong>IP Source:</strong> ${srcIp}</span>
+                        <span><strong>IP Destination:</strong> ${dstIp}</span>
+                        <span><strong>Protocole:</strong> ${protocol}</span>
+                        <span><strong>Port Source:</strong> ${sport}</span>
+                        <span><strong>Port Destination:</strong> ${dport}</span>
+                    </div>
+                    ${raw ? `
+                        <button class="expand-btn" onclick="toggleRaw('${logId}')">📄 Afficher/Masquer log brut</button>
+                        <div class="log-raw" id="${logId}" style="display: none;">${escapeHtml(raw)}</div>
+                    ` : ''}
                 </div>
             `;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function toggleRaw(logId) {
+            const element = document.getElementById(logId);
+            if (element) {
+                element.style.display = element.style.display === 'none' ? 'block' : 'none';
+            }
         }
         
         function loadLogs() {
@@ -212,7 +353,7 @@
                             </div>`;
                         return;
                     }
-                    container.innerHTML = logs.map(formatLogEntry).join('');
+                    container.innerHTML = logs.map((log, index) => formatLogEntry(log, index)).join('');
                 })
                 .catch(error => {
                     console.error('Erreur:', error);
@@ -234,6 +375,46 @@
                     document.getElementById('blocked').textContent = stats.blocked_attempts || 0;
                     document.getElementById('allowed').textContent = stats.allowed_connections || 0;
                     document.getElementById('src-ips').textContent = Object.keys(stats.by_src_ip || {}).length;
+                    
+                    // Top IP Sources
+                    const topIps = Object.entries(stats.by_src_ip || {})
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 10);
+                    const topIpsHtml = topIps.length > 0 
+                        ? topIps.map(([ip, count]) => `
+                            <div class="top-item">
+                                <span>${ip}</span>
+                                <span style="font-weight: bold; color: #667eea;">${count}</span>
+                            </div>
+                        `).join('')
+                        : '<div class="loading">Aucune IP source trouvée</div>';
+                    document.getElementById('top-ips').innerHTML = topIpsHtml;
+                    
+                    // Top Ports
+                    const topPorts = Object.entries(stats.by_dport || {})
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 10);
+                    const topPortsHtml = topPorts.length > 0
+                        ? topPorts.map(([port, count]) => `
+                            <div class="top-item">
+                                <span>Port ${port}</span>
+                                <span style="font-weight: bold; color: #667eea;">${count}</span>
+                            </div>
+                        `).join('')
+                        : '<div class="loading">Aucun port trouvé</div>';
+                    document.getElementById('top-ports').innerHTML = topPortsHtml;
+                    
+                    // Protocoles
+                    const protocols = Object.entries(stats.by_protocol || {});
+                    const protocolsHtml = protocols.length > 0
+                        ? protocols.map(([proto, count]) => `
+                            <div class="top-item">
+                                <span>${proto}</span>
+                                <span style="font-weight: bold; color: #667eea;">${count}</span>
+                            </div>
+                        `).join('')
+                        : '<div class="loading">Aucun protocole trouvé</div>';
+                    document.getElementById('protocol-stats').innerHTML = protocolsHtml;
                 })
                 .catch(error => {
                     console.error('Erreur stats:', error);

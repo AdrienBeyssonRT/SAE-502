@@ -227,12 +227,12 @@ Le projet AutoDeploy Firewall répond à 100% aux exigences du cahier des charge
 
 Le projet est prêt pour la démonstration et l'évaluation. Il constitue une solution complète, cohérente et entièrement automatisable pour le déploiement et la supervision d'un pare-feu Linux.
 
-## 📚 Fichiers du projet
+## 📚 Documentation du projet
 
-- **README.md** : Documentation principale
-- **INSTALLATION.md** : Guide d'installation détaillé
-- **STRUCTURE.md** : Arborescence du projet
-- **PROJET.md** : Ce compte rendu
+- **README.md** : Documentation principale et vue d'ensemble
+- **INSTALLATION.md** : Guide d'installation détaillé étape par étape
+- **STRUCTURE.md** : Arborescence complète et description des composants
+- **PROJET.md** : Ce compte rendu détaillé
 
 ## 👥 Auteurs
 

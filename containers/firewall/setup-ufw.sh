@@ -61,10 +61,38 @@ ufw limit 22/tcp comment 'Limitation SSH anti brute-force'
 echo "Activation de UFW..."
 ufw --force enable
 
+# Vérifier que le logging est bien activé
+echo "Vérification du logging..."
+LOGGING_STATUS=$(ufw status verbose | grep -i logging | head -1)
+echo "Logging status: $LOGGING_STATUS"
+
+if ! echo "$LOGGING_STATUS" | grep -qi "on (high)"; then
+    echo "ATTENTION: Le logging n'est pas activé correctement!"
+    echo "Réactivation du logging..."
+    ufw logging high
+fi
+
 # Affichage du statut
+echo ""
 echo "Statut UFW:"
 ufw status verbose
 
+# Vérifier que les logs sont bien générés
+echo ""
+echo "Vérification des logs UFW..."
+if [ -f /var/log/kern.log ]; then
+    UFW_LOGS=$(grep -i "UFW" /var/log/kern.log | tail -3)
+    if [ -z "$UFW_LOGS" ]; then
+        echo "Aucun log UFW trouvé dans /var/log/kern.log (normal si aucun trafic n'a été généré)"
+    else
+        echo "Derniers logs UFW:"
+        echo "$UFW_LOGS"
+    fi
+else
+    echo "Le fichier /var/log/kern.log n'existe pas encore"
+fi
+
+echo ""
 echo "Configuration UFW terminée avec succès!"
 
 

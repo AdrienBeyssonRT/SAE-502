@@ -50,32 +50,28 @@ Le projet utilise une machine virtuelle Linux exécutant 4 conteneurs Docker :
 
 ## 🚀 Installation et déploiement
 
-### 1. Installation de Docker
+Pour un guide d'installation détaillé, consultez **[INSTALLATION.md](INSTALLATION.md)**.
+
+### Installation rapide
 
 ```bash
+# 1. Installation de Docker
 ansible-playbook ansible/playbooks/install.yml
-```
 
-### 2. Déploiement complet
-
-```bash
+# 2. Déploiement complet
 ansible-playbook ansible/playbooks/deploy.yml
+
+# 3. Accéder à la supervision
+# Ouvrir http://localhost:5000
 ```
 
-Ce playbook va :
-- Construire les images Docker de tous les conteneurs
-- Lancer l'infrastructure complète via docker-compose
-- Configurer automatiquement UFW avec les règles
-
-### 3. Mise à jour des règles UFW
+### Commandes supplémentaires
 
 ```bash
+# Mise à jour des règles UFW
 ansible-playbook ansible/playbooks/rules_update.yml
-```
 
-### 4. Tests automatiques
-
-```bash
+# Tests automatiques
 ansible-playbook ansible/playbooks/tests.yml
 ```
 
@@ -132,30 +128,25 @@ docker exec firewall ufw status verbose
 
 ## 📁 Structure du projet
 
+Pour une description détaillée de la structure, consultez **[STRUCTURE.md](STRUCTURE.md)**.
+
 ```
 .
-├── ansible/
+├── ansible/                   # Configuration Ansible
 │   ├── inventory              # Inventaire Ansible
-│   ├── roles/
-│   │   ├── docker/            # Installation Docker
-│   │   ├── firewall/          # Configuration firewall
-│   │   ├── logcollector/      # Configuration logcollector
-│   │   ├── supervision/       # Configuration supervision
-│   │   ├── client/            # Configuration client
-│   │   └── docker_compose/    # Orchestration Docker
-│   └── playbooks/
-│       ├── install.yml        # Installation Docker
-│       ├── deploy.yml         # Déploiement complet
-│       ├── rules_update.yml   # Mise à jour règles
-│       └── tests.yml          # Tests automatiques
-├── containers/
-│   ├── firewall/              # Dockerfile et config firewall
-│   ├── logcollector/          # Dockerfile et config rsyslog
-│   ├── supervision/           # Application Flask
-│   └── client/                # Dockerfile client
+│   ├── roles/                 # Rôles Ansible
+│   └── playbooks/             # Playbooks de déploiement
+├── containers/                # Conteneurs Docker
+│   ├── firewall/              # Pare-feu UFW
+│   ├── logcollector/          # Collecteur de logs
+│   ├── supervision/           # Application de supervision
+│   └── client/                # Client de test
 ├── docker-compose.yml         # Orchestration des conteneurs
 ├── ansible.cfg                # Configuration Ansible
-└── README.md                  # Ce fichier
+├── README.md                  # Documentation principale
+├── INSTALLATION.md            # Guide d'installation
+├── STRUCTURE.md               # Structure du projet
+└── PROJET.md                  # Compte rendu du projet
 ```
 
 ## 🔧 Rôles Ansible
@@ -185,7 +176,13 @@ L'application de supervision (Flask) fournit :
   - `/api/logs` : Liste des logs
   - `/api/stats` : Statistiques agrégées
   - `/api/recent` : Logs récents (50 dernières lignes)
-- **Interface web** : Tableau de bord avec visualisation en temps réel
+  - `/api/debug` : Informations de debug
+- **Interface web** : Tableau de bord détaillé avec :
+  - Vue d'ensemble (total logs, tentatives bloquées, connexions autorisées)
+  - Top IP sources
+  - Top ports ciblés
+  - Répartition par protocole
+  - Logs détaillés avec IP source/destination, ports, protocole, action
 
 ## 🛠️ Dépannage
 
@@ -235,6 +232,13 @@ docker exec firewall tail -f /var/log/ufw.log
 - Les logs sont stockés dans un volume Docker persistant
 - La supervision se met à jour automatiquement toutes les 5 secondes
 - Les règles UFW peuvent être modifiées dynamiquement via `rules_update.yml`
+- Pour générer des logs UFW, utilisez de vraies connexions TCP (pas seulement des scans nmap)
+
+## 📚 Documentation
+
+- **[INSTALLATION.md](INSTALLATION.md)** : Guide d'installation détaillé
+- **[STRUCTURE.md](STRUCTURE.md)** : Structure complète du projet
+- **[PROJET.md](PROJET.md)** : Compte rendu du projet
 
 ## 👥 Auteurs
 

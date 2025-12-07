@@ -10,6 +10,7 @@ RUN apt-get update && \
 # Scripts de test
 COPY test_scripts /usr/local/bin/
 COPY generate-traffic.sh /usr/local/bin/generate-traffic.sh
+COPY test-rules-ufw.sh /usr/local/bin/test-rules-ufw.sh
 RUN chmod +x /usr/local/bin/*.sh
 
 WORKDIR /root

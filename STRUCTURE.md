@@ -11,7 +11,6 @@ SAE502 final/
 ├── INSTALLATION.md                # Guide d'installation détaillé
 ├── STRUCTURE.md                   # Ce fichier - Structure du projet
 ├── PROJET.md                      # Compte rendu du projet
-├── .gitignore                     # Fichiers à ignorer par Git
 │
 ├── ansible/                       # Configuration Ansible
 │   ├── inventory                  # Inventaire Ansible (localhost)
@@ -75,6 +74,8 @@ SAE502 final/
     └── client/                    # Conteneur client de test
         ├── Dockerfile
         ├── entrypoint.sh
+        ├── generate-traffic.sh    # Script pour générer du trafic
+        ├── test-rules-ufw.sh      # Script de test des règles UFW
         └── test_scripts/          # Scripts de test
             ├── test_ssh.sh
             ├── test_ports.sh

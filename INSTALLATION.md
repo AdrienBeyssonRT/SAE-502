@@ -187,8 +187,9 @@ nc -zv firewall 22
 # Test HTTP (devrait être bloqué)
 curl http://firewall:80
 
-# Test SMB (devrait être bloqué)
-nc -zv firewall 445
+# Test SMB (devrait être bloqué) - Utiliser une vraie connexion TCP
+timeout 2 bash -c '</dev/tcp/firewall/445' 2>&1 || true
+nc -zv -w 2 firewall 445
 
 # Sortir du conteneur
 exit
