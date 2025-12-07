@@ -39,3 +39,4 @@ echo ""
 echo "Ou vérifiez dans le logcollector:"
 echo "  docker exec logcollector tail -20 /var/log/firewall/firewall_*.log | grep -i ufw"
 
+

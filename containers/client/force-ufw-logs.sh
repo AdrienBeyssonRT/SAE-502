@@ -28,3 +28,4 @@ echo "  1. Logs dans le firewall: docker exec firewall tail -30 /var/log/kern.lo
 echo "  2. Logs dans le collecteur: docker exec logcollector tail -20 /var/log/firewall/*.log | grep -i ufw"
 echo "  3. Interface web: http://localhost:5000"
 
+

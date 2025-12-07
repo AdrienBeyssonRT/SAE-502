@@ -138,3 +138,4 @@ docker exec client bash /usr/local/bin/force-ufw-logs.sh && sleep 3 && docker ex
    - Ouvrez http://localhost:5000/api/debug
    - Regardez `parsed_count` et `sample_logs`
 
+
