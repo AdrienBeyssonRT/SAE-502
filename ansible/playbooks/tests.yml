@@ -31,57 +31,63 @@
       debug:
         var: ping_result.stdout_lines
 
-    - name: Test 2 - Scan de ports avec nmap
-      command: docker exec client nmap -p 22,80,443,445,3389 {{ firewall_host }}
-      register: nmap_result
+    - name: Vérifier le statut UFW et le logging
+      command: docker exec firewall ufw status verbose
+      register: ufw_status
       changed_when: false
       failed_when: false
 
-    - name: Afficher le résultat du scan
+    - name: Afficher le statut UFW
       debug:
-        var: nmap_result.stdout_lines
+        var: ufw_status.stdout_lines
 
-    - name: Test 3 - Tentative de connexion SSH
-      command: docker exec client nc -zv {{ firewall_host }} 22
-      register: ssh_test
+    - name: Test 2 - Générer des connexions TCP réelles pour créer des logs UFW
+      shell: |
+        docker exec client bash -c "
+          echo 'Test port 445 (SMB) - DOIT ÊTRE BLOQUÉ...'
+          timeout 2 bash -c '</dev/tcp/{{ firewall_host }}/445' 2>&1 || true
+          sleep 1
+          echo 'Test port 3389 (RDP) - DOIT ÊTRE BLOQUÉ...'
+          timeout 2 bash -c '</dev/tcp/{{ firewall_host }}/3389' 2>&1 || true
+          sleep 1
+          echo 'Test port 139 (NetBIOS) - DOIT ÊTRE BLOQUÉ...'
+          timeout 2 bash -c '</dev/tcp/{{ firewall_host }}/139' 2>&1 || true
+          sleep 1
+          echo 'Test port 80 (HTTP) - DOIT ÊTRE BLOQUÉ...'
+          timeout 2 bash -c '</dev/tcp/{{ firewall_host }}/80' 2>&1 || true
+          sleep 1
+          echo 'Test port 22 (SSH) - DOIT ÊTRE AUTORISÉ...'
+          timeout 2 bash -c '</dev/tcp/{{ firewall_host }}/22' 2>&1 || true
+        "
+      register: tcp_tests
       changed_when: false
       failed_when: false
 
-    - name: Afficher le résultat du test SSH
+    - name: Afficher les résultats des tests TCP
       debug:
-        var: ssh_test.stdout_lines
+        var: tcp_tests.stdout_lines
 
-    - name: Test 4 - Tentative de connexion HTTP
-      command: docker exec client curl -v --connect-timeout 5 http://{{ firewall_host }}:80
-      register: http_test
+    - name: Vérifier les logs UFW dans le firewall (dans les 3 secondes)
+      command: docker exec firewall tail -30 /var/log/kern.log | grep -i ufw || echo "Aucun log UFW trouvé"
+      register: ufw_logs_check
       changed_when: false
       failed_when: false
 
-    - name: Afficher le résultat du test HTTP
+    - name: Afficher les logs UFW trouvés
       debug:
-        var: http_test.stdout_lines
-
-    - name: Test 5 - Tentative de connexion SMB (devrait être bloquée)
-      command: docker exec client nc -zv {{ firewall_host }} 445
-      register: smb_test
-      changed_when: false
-      failed_when: false
-
-    - name: Afficher le résultat du test SMB
-      debug:
-        var: smb_test.stdout_lines
+        var: ufw_logs_check.stdout_lines
 
     - name: Attendre la propagation des logs
       pause:
-        seconds: 3
+        seconds: 5
 
     - name: Vérifier les logs dans le collecteur
-      command: docker exec logcollector tail -n 20 /var/log/firewall/*.log
+      shell: docker exec logcollector sh -c "tail -n 30 /var/log/firewall/*.log 2>/dev/null | grep -i ufw | tail -20" || echo "Aucun log UFW dans le collecteur"
       register: logs_check
       changed_when: false
       failed_when: false
 
-    - name: Afficher les logs récents
+    - name: Afficher les logs récents du collecteur
       debug:
         var: logs_check.stdout_lines
 

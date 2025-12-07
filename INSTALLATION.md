@@ -203,10 +203,27 @@ ansible-playbook ansible/playbooks/tests.yml
 ```
 
 Ce playbook va :
-- Faire des tests de connexion
-- Vérifier que les règles fonctionnent
-- Afficher les logs générés
+- Vérifier le statut UFW et le logging
+- Générer des connexions TCP réelles pour créer des logs UFW
+- Vérifier que les logs sont générés dans le firewall
+- Vérifier que les logs sont envoyés au collecteur
 - Vérifier que la supervision reçoit les données
+
+### Option C : Script de génération de logs
+
+```bash
+# Utiliser le script pour forcer la génération de logs UFW
+docker exec client bash /usr/local/bin/force-ufw-logs.sh
+
+# Attendre 5 secondes
+sleep 5
+
+# Vérifier les logs dans le firewall
+docker exec firewall tail -30 /var/log/kern.log | grep -i ufw
+
+# Vérifier les logs dans le collecteur
+docker exec logcollector tail -20 /var/log/firewall/*.log | grep -i ufw
+```
 
 ---
 
