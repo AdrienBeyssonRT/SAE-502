@@ -28,7 +28,7 @@ sudo ./deploy-all.sh
 11. ✅ Vérification complète de la chaîne de logs
 12. ✅ Affichage d'un résumé complet
 
-**C'est tout !** À la fin, l'interface web est disponible sur http://localhost:5000
+**C'est tout !** À la fin, l'interface Splunk est disponible sur http://localhost:8000
 
 ---
 
@@ -72,7 +72,7 @@ ansible-playbook ansible/playbooks/deploy-and-test.yml
 7. ✅ Vérification de la catégorisation (BLOCK/ALLOW)
 8. ✅ Affichage d'un résumé avec statistiques
 
-**Résultat :** Interface web opérationnelle sur **http://localhost:5000** avec logs correctement catégorisés.
+**Résultat :** Interface Splunk opérationnelle sur **http://localhost:8000** avec logs UFW indexés et analysables.
 
 ## 📦 Architecture déployée
 
@@ -82,14 +82,14 @@ ansible-playbook ansible/playbooks/deploy-and-test.yml
 |-----------|------|---------|-------|
 | **firewall** | Pare-feu UFW | firewall_network, logs_network | - |
 | **logcollector** | Serveur rsyslog | logs_network, supervision_network | 514/udp |
-| **supervision** | Application web Flask | supervision_network | 5000 |
+| **splunk** | Plateforme de supervision Splunk | supervision_network, logs_network | 8000, 514/udp |
 | **client** | Conteneur de test | firewall_network, tests_network | - |
 
 ### Réseaux Docker
 
 - `firewall_network` (172.20.0.0/16) : Réseau pour firewall et client
 - `logs_network` (172.21.0.0/16) : Réseau pour firewall et logcollector
-- `supervision_network` (172.22.0.0/16) : Réseau pour logcollector et supervision
+- `supervision_network` (172.22.0.0/16) : Réseau pour logcollector et Splunk
 - `tests_network` (172.23.0.0/16) : Réseau pour les tests
 
 ## 🔄 Flux des logs
@@ -97,7 +97,7 @@ ansible-playbook ansible/playbooks/deploy-and-test.yml
 ```
 ┌──────────┐      ┌──────────────┐      ┌─────────────┐      ┌──────────────┐
 │ Firewall │ ───> │ Logcollector │ ───> │ Supervision │ ───> │ Interface Web│
-│   UFW    │ UDP  │    rsyslog   │ Vol  │    Flask    │ HTTP │  Port 5000   │
+│   UFW    │ UDP  │    rsyslog   │ Vol  │    Splunk   │ HTTP │  Port 8000   │
 └──────────┘ 514  └──────────────┘      └─────────────┘      └──────────────┘
 ```
 
@@ -149,7 +149,7 @@ Le playbook `deploy-and-test.yml` génère automatiquement du trafic sur :
 docker ps
 ```
 
-Vous devriez voir : `firewall`, `logcollector`, `supervision`, `client`
+Vous devriez voir : `firewall`, `logcollector`, `splunk`, `client`
 
 ### 2. Vérifier UFW
 
@@ -179,7 +179,9 @@ Vous devriez voir les mêmes logs que dans le firewall.
 
 ### 5. Vérifier l'interface web
 
-Ouvrez **http://localhost:5000** dans votre navigateur.
+Ouvrez **http://localhost:8000** dans votre navigateur et connectez-vous avec :
+- **Utilisateur** : `admin`
+- **Mot de passe** : `splunk1RT3`
 
 Vous devriez voir :
 - ✅ Statistiques (total logs, tentatives bloquées, connexions autorisées)
@@ -191,13 +193,15 @@ Vous devriez voir :
 
 ```bash
 # Statistiques
-curl http://localhost:5000/api/stats
+# Rechercher les logs UFW dans Splunk
+docker exec splunk /opt/splunk/bin/splunk search 'index=main sourcetype=syslog "UFW"' -auth admin:splunk1RT3
 
 # Logs récents
-curl http://localhost:5000/api/recent
+# Rechercher les logs BLOCK
+docker exec splunk /opt/splunk/bin/splunk search 'index=main sourcetype=syslog "UFW BLOCK"' -auth admin:splunk1RT3
 
-# Debug
-curl http://localhost:5000/api/debug
+# Rechercher les logs ALLOW dans Splunk
+docker exec splunk /opt/splunk/bin/splunk search 'index=main sourcetype=syslog "UFW ALLOW"' -auth admin:splunk1RT3
 ```
 
 ## 🛠️ Déploiement étape par étape (optionnel)
@@ -367,7 +371,7 @@ docker-compose restart
 
 3. Vérifier l'API de debug pour voir les logs parsés :
    ```bash
-   curl http://localhost:5000/api/debug | jq '.parsed_samples'
+   docker exec splunk /opt/splunk/bin/splunk search 'index=main sourcetype=syslog "UFW" | head 10' -auth admin:splunk1RT3
    ```
 
 ## 📈 Résultat attendu
@@ -378,15 +382,18 @@ Après le déploiement, vous devriez avoir :
 - ✅ **UFW actif** avec logging high
 - ✅ **Logs UFW** générés dans `/var/log/kern.log` du firewall
 - ✅ **Logs collectés** dans `/var/log/firewall/*.log` du logcollector
-- ✅ **Logs parsés** et catégorisés dans l'interface web
-- ✅ **Statistiques** affichées (BLOCK, ALLOW, IP sources, ports)
+- ✅ **Logs indexés** dans Splunk et analysables via l'interface web
+- ✅ **Recherches** possibles pour filtrer par action (BLOCK, ALLOW), IP sources, ports
 
 ## 🔗 Liens utiles
 
-- **Interface web** : http://localhost:5000
-- **API stats** : http://localhost:5000/api/stats
-- **API logs** : http://localhost:5000/api/logs
-- **API debug** : http://localhost:5000/api/debug
+- **Interface Splunk** : http://localhost:8000
+  - Utilisateur : `admin`
+  - Mot de passe : `splunk1RT3`
+- **Recherche de logs UFW** :
+  ```bash
+  docker exec splunk /opt/splunk/bin/splunk search 'index=main sourcetype=syslog "UFW"' -auth admin:splunk1RT3
+  ```
 
 ## 📚 Documentation complémentaire
 

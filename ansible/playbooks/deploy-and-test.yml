@@ -9,7 +9,7 @@
     client_container: "client"
     firewall_container: "firewall"
     logcollector_container: "logcollector"
-    supervision_container: "supervision"
+    splunk_container: "splunk"
   
   tasks:
     - name: Afficher le début du déploiement
@@ -219,102 +219,99 @@
       when: collector_logs.stdout_lines | length > 0
 
     # ==========================================
-    # ÉTAPE 6 : VÉRIFICATION DE LA SUPERVISION
+    # ÉTAPE 6 : VÉRIFICATION DE SPLUNK
     # ==========================================
-    - name: Attendre que l'application de supervision soit prête
+    - name: Attendre que Splunk soit prêt
       pause:
-        seconds: 3
+        seconds: 30
+      vars:
+        splunk_wait_time: 30
 
-    - name: Vérifier l'API de supervision - Statistiques
-      uri:
-        url: http://localhost:5000/api/stats
-        method: GET
-      register: supervision_stats
+    - name: Vérifier que Splunk est en cours d'exécution
+      command: docker ps --filter "name={{ splunk_container }}" --format "{{ '{{' }}.Status{{ '}}' }}"
+      register: splunk_status
+      changed_when: false
+      retries: 10
+      delay: 5
+
+    - name: Afficher le statut de Splunk
+      debug:
+        msg: "Statut Splunk: {{ splunk_status.stdout }}"
+
+    - name: Vérifier que Splunk écoute sur le port 8000
+      wait_for:
+        host: localhost
+        port: 8000
+        timeout: 60
+      changed_when: false
+
+    - name: Vérifier les logs UFW dans Splunk via recherche
+      shell: |
+        docker exec {{ splunk_container }} /opt/splunk/bin/splunk search 'index=_internal OR index=main sourcetype=syslog "UFW" | head 20' -auth admin:splunk1RT3 2>/dev/null || echo "Aucun log trouvé"
+      register: splunk_ufw_logs
       changed_when: false
       failed_when: false
-      retries: 5
-      delay: 2
+      retries: 3
+      delay: 5
 
-    - name: Afficher les statistiques de supervision
-      debug:
-        msg:
-          - "Statistiques de supervision:"
-          - "  Total de logs parsés: {{ supervision_stats.json.total | default(0) }}"
-          - "  Tentatives bloquées (BLOCK): {{ supervision_stats.json.blocked_attempts | default(0) }}"
-          - "  Connexions autorisées (ALLOW): {{ supervision_stats.json.allowed_connections | default(0) }}"
-          - "  Répartition par action: {{ supervision_stats.json.by_action | default({}) }}"
-          - "  Top IP sources: {{ (supervision_stats.json.by_src_ip | default({}) | dict2items | sort(attribute='value', reverse=true) | list | map(attribute='key') | list)[:5] }}"
-          - "  Top ports: {{ (supervision_stats.json.by_dport | default({}) | dict2items | sort(attribute='value', reverse=true) | list | map(attribute='key') | list)[:5] }}"
-
-    - name: Vérifier l'API de supervision - Debug
-      uri:
-        url: http://localhost:5000/api/debug
-        method: GET
-      register: debug_info
-      changed_when: false
-      failed_when: false
-
-    - name: Afficher les informations de debug
-      debug:
-        msg:
-          - "Informations de debug:"
-          - "  Répertoire de logs: {{ debug_info.json.log_dir | default('N/A') }}"
-          - "  Répertoire existe: {{ debug_info.json.log_dir_exists | default(false) }}"
-          - "  Fichiers de logs: {{ debug_info.json.log_files | default([]) }}"
-          - "  Total de lignes lues: {{ debug_info.json.total_lines | default(0) }}"
-          - "  Logs parsés avec succès: {{ debug_info.json.parsed_count | default(0) }}"
-      when: debug_info.json is defined
-
-    - name: Vérifier l'API de supervision - Logs récents
-      uri:
-        url: http://localhost:5000/api/recent
-        method: GET
-      register: recent_logs
+    - name: Compter les logs UFW dans Splunk
+      shell: |
+        docker exec {{ splunk_container }} /opt/splunk/bin/splunk search 'index=main sourcetype=syslog "UFW" | stats count' -auth admin:splunk1RT3 -output csv 2>/dev/null | tail -n 1 || echo "0"
+      register: splunk_log_count_raw
       changed_when: false
       failed_when: false
 
-    - name: Compter les logs récents parsés
+    - name: Extraire le nombre de logs
       set_fact:
-        parsed_log_count: "{{ recent_logs.json | length | default(0) }}"
+        splunk_log_count: "{{ splunk_log_count_raw.stdout | regex_replace('^[^0-9]*([0-9]+).*$', '\\1') | default('0') | int }}"
 
-    - name: Afficher des exemples de logs parsés
+    - name: Afficher le nombre de logs dans Splunk
       debug:
-        msg:
-          - "Exemples de logs parsés ({{ parsed_log_count }} au total):"
-          - "{{ recent_logs.json[:3] | default([]) }}"
-      when: recent_logs.json is defined and recent_logs.json | length > 0
+        msg: "{{ splunk_log_count }} logs UFW trouvés dans Splunk"
 
-    # ==========================================
-    # ÉTAPE 7 : VÉRIFICATION DE LA CATÉGORISATION
-    # ==========================================
-    - name: Vérifier la catégorisation des logs
-      set_fact:
-        logs_by_action: "{{ recent_logs.json | default([]) | groupby('action') | map('first') | list }}"
+    - name: Afficher des exemples de logs Splunk
+      debug:
+        msg: "{{ splunk_ufw_logs.stdout_lines[:10] }}"
+      when: splunk_ufw_logs.stdout_lines | length > 0
 
-    - name: Compter les logs par catégorie
+    - name: Rechercher les logs BLOCK dans Splunk
+      shell: |
+        docker exec {{ splunk_container }} /opt/splunk/bin/splunk search 'index=main sourcetype=syslog "UFW BLOCK" | stats count' -auth admin:splunk1RT3 -output csv 2>/dev/null | tail -n 1 || echo "0"
+      register: splunk_block_count_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Extraire le nombre de logs BLOCK
       set_fact:
-        block_count: "{{ recent_logs.json | default([]) | selectattr('action', 'equalto', 'BLOCK') | list | length }}"
-        allow_count: "{{ recent_logs.json | default([]) | selectattr('action', 'equalto', 'ALLOW') | list | length }}"
-        limit_count: "{{ recent_logs.json | default([]) | selectattr('action', 'equalto', 'LIMIT') | list | length }}"
-        network_count: "{{ recent_logs.json | default([]) | selectattr('action', 'equalto', 'NETWORK') | list | length }}"
+        block_count: "{{ splunk_block_count_raw.stdout | regex_replace('^[^0-9]*([0-9]+).*$', '\\1') | default('0') | int }}"
+
+    - name: Rechercher les logs ALLOW dans Splunk
+      shell: |
+        docker exec {{ splunk_container }} /opt/splunk/bin/splunk search 'index=main sourcetype=syslog "UFW ALLOW" | stats count' -auth admin:splunk1RT3 -output csv 2>/dev/null | tail -n 1 || echo "0"
+      register: splunk_allow_count_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Extraire le nombre de logs ALLOW
+      set_fact:
+        allow_count: "{{ splunk_allow_count_raw.stdout | regex_replace('^[^0-9]*([0-9]+).*$', '\\1') | default('0') | int }}"
 
     - name: Afficher la répartition par catégorie
       debug:
         msg:
-          - "Répartition des logs par catégorie:"
+          - "Répartition des logs par catégorie dans Splunk:"
           - "  BLOCK (bloqués): {{ block_count }}"
           - "  ALLOW (autorisés): {{ allow_count }}"
-          - "  LIMIT (limités): {{ limit_count }}"
-          - "  NETWORK (réseau): {{ network_count }}"
+          - "  Total UFW: {{ splunk_log_count }}"
 
     - name: Vérifier qu'il y a des logs BLOCK
       debug:
-        msg: "✅ Des logs BLOCK ont été détectés (ports bloqués: 445, 3389, 139, 80)"
+        msg: "✅ Des logs BLOCK ont été détectés dans Splunk (ports bloqués: 445, 3389, 139, 80)"
       when: block_count | int > 0
 
     - name: Vérifier qu'il y a des logs ALLOW
       debug:
-        msg: "✅ Des logs ALLOW ont été détectés (port autorisé: 22 depuis réseau interne)"
+        msg: "✅ Des logs ALLOW ont été détectés dans Splunk (port autorisé: 22 depuis réseau interne)"
       when: allow_count | int > 0
 
     # ==========================================
@@ -330,15 +327,14 @@
           - "✅ Conteneurs: Tous démarrés"
           - "{{ '✅' if (firewall_log_count | int > 0) else '❌' }} Logs UFW dans le firewall: {{ firewall_log_count }} logs"
           - "{{ '✅' if (collector_log_count | int > 0) else '⚠️ ' }} Logs dans le collecteur: {{ collector_log_count }} logs"
-          - "{{ '✅' if (parsed_log_count | int > 0) else '⚠️ ' }} Logs parsés par la supervision: {{ parsed_log_count }} logs"
+          - "{{ '✅' if (splunk_log_count | int > 0) else '⚠️ ' }} Logs indexés dans Splunk: {{ splunk_log_count }} logs"
           - ""
-          - "📊 Catégorisation:"
+          - "📊 Catégorisation dans Splunk:"
           - "  BLOCK: {{ block_count }} logs"
           - "  ALLOW: {{ allow_count }} logs"
-          - "  LIMIT: {{ limit_count }} logs"
-          - "  NETWORK: {{ network_count }} logs"
           - ""
-          - "🌐 Interface web disponible sur: http://localhost:5000"
+          - "🌐 Interface Splunk disponible sur: http://localhost:8000"
+          - "  Identifiants: admin / splunk1RT3"
           - ""
           - "Pour voir les logs en temps réel:"
           - "  docker exec {{ firewall_container }} tail -f /var/log/kern.log | grep UFW"
@@ -352,5 +348,5 @@
           - "Le système est opérationnel et les logs sont correctement catégorisés."
       when: 
         - firewall_log_count | int > 0
-        - parsed_log_count | int > 0
+        - splunk_log_count | int > 0
 

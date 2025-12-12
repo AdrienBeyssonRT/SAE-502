@@ -36,18 +36,25 @@ services:
       - firewall_logs:/var/log/firewall
     restart: unless-stopped
 
-  supervision:
-    build:
-      context: ./containers/supervision
-      dockerfile: Dockerfile
-    container_name: supervision
-    hostname: supervision
+  splunk:
+    image: splunk/splunk:latest
+    container_name: splunk
+    hostname: splunk
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com
+      - SPLUNK_PASSWORD=splunk1RT3
+      - SPLUNK_HOME=/opt/splunk
+    ports:
+      - "8000:8000"
+      - "9997:9997"
     networks:
       - supervision_network
-    ports:
-      - "5000:5000"
+      - logs_network
     volumes:
-      - firewall_logs:/mnt/logs/firewall:ro
+      - splunk_data:/opt/splunk/var
+      - ./containers/splunk/inputs.conf:/opt/splunk/etc/system/local/inputs.conf:ro
+      - ./containers/splunk/props.conf:/opt/splunk/etc/system/local/props.conf:ro
     restart: unless-stopped
     depends_on:
       - logcollector
@@ -102,6 +109,8 @@ networks:
 
 volumes:
   firewall_logs:
+    driver: local
+  splunk_data:
     driver: local
 
 

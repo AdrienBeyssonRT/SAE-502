@@ -36,7 +36,7 @@ SAE502 final/
 │       │   ├── defaults/main.yml
 │       │   └── tasks/main.yml
 │       │
-│       ├── supervision/           # Rôle : Application de supervision
+│       ├── splunk/                 # Rôle : Configuration Splunk (si nécessaire)
 │       │   ├── defaults/main.yml
 │       │   └── tasks/main.yml
 │       │
@@ -61,15 +61,9 @@ SAE502 final/
     │   ├── entrypoint.sh
     │   └── rsyslog.conf           # Configuration rsyslog serveur
     │
-    ├── supervision/               # Conteneur application de supervision
-    │   ├── Dockerfile
-    │   ├── entrypoint.sh
-    │   ├── requirements.txt       # Dépendances Python
-    │   ├── supervision_app.py     # Application Flask
-    │   ├── templates/
-    │   │   └── dashboard.html     # Interface web
-    │   └── static/
-    │       └── style.css          # Styles CSS
+    ├── splunk/                    # Conteneur Splunk pour supervision
+    │   ├── inputs.conf            # Configuration réception syslog (UDP 514)
+    │   └── props.conf             # Configuration parsing logs UFW
     │
     └── client/                    # Conteneur client de test
         ├── Dockerfile
@@ -138,12 +132,12 @@ Chaque conteneur contient :
 Définis dans `docker-compose.yml` :
 - `firewall_network` (172.20.0.0/16) : Réseau pour le firewall et le client
 - `logs_network` (172.21.0.0/16) : Réseau pour le firewall et le logcollector
-- `supervision_network` (172.22.0.0/16) : Réseau pour le logcollector et la supervision
+- `supervision_network` (172.22.0.0/16) : Réseau pour le logcollector et Splunk
 - `tests_network` (172.23.0.0/16) : Réseau pour les tests
 
 ## Points d'entrée
 
-- **Supervision web** : http://localhost:5000
+- **Interface Splunk** : http://localhost:8000 (admin / splunk1RT3)
 - **Client de test** : `docker exec -it client bash`
 - **Logs** : `docker-compose logs -f`
 - **Règles UFW** : `docker exec firewall ufw status verbose`
@@ -155,7 +149,7 @@ Définis dans `docker-compose.yml` :
 - **Docker Compose** : Orchestration des conteneurs
 - **UFW** : Pare-feu Linux
 - **rsyslog** : Collecte et centralisation des logs
-- **Flask** : Application web de supervision
-- **Python** : Langage de l'application de supervision
+- **Splunk** : Plateforme de supervision et analyse de logs
+- **Syslog** : Protocole de réception des logs (UDP 514)
 
 
