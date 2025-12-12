@@ -223,9 +223,9 @@
     # ==========================================
     - name: Attendre que Splunk soit prêt
       pause:
-        seconds: 30
+        seconds: 60
       vars:
-        splunk_wait_time: 30
+        splunk_wait_time: 60
 
     - name: Vérifier que Splunk est en cours d'exécution
       command: docker ps --filter "name={{ splunk_container }}" --format "{{ '{{' }}.Status{{ '}}' }}"

@@ -63,7 +63,8 @@ SAE502 final/
     │
     ├── splunk/                    # Conteneur Splunk pour supervision
     │   ├── inputs.conf            # Configuration réception syslog (UDP 514)
-    │   └── props.conf             # Configuration parsing logs UFW
+    │   ├── props.conf             # Configuration parsing logs UFW
+    │   └── dashboard_ufw.xml      # Dashboard automatique UFW (chargé au démarrage)
     │
     └── client/                    # Conteneur client de test
         ├── Dockerfile

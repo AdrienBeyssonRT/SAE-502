@@ -55,6 +55,7 @@ services:
       - splunk_data:/opt/splunk/var
       - ./containers/splunk/inputs.conf:/opt/splunk/etc/system/local/inputs.conf:ro
       - ./containers/splunk/props.conf:/opt/splunk/etc/system/local/props.conf:ro
+      - ./containers/splunk/dashboard_ufw.xml:/opt/splunk/etc/apps/search/local/data/ui/views/ufw_firewall_dashboard.xml:ro
     restart: unless-stopped
     depends_on:
       - logcollector

@@ -1,0 +1,174 @@
+<dashboard>
+  <label>UFW Firewall Dashboard</label>
+  <description>Dashboard de supervision des logs UFW</description>
+  
+  <!-- Panneau 1: Statistiques globales -->
+  <row>
+    <panel>
+      <title>Statistiques Globales</title>
+      <single>
+        <title>Total Logs UFW</title>
+        <search>
+          <query>index=main sourcetype=syslog "UFW" | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Logs BLOCK</title>
+        <search>
+          <query>index=main sourcetype=syslog "UFW BLOCK" | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Logs ALLOW</title>
+        <search>
+          <query>index=main sourcetype=syslog "UFW ALLOW" | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Panneau 2: Répartition BLOCK vs ALLOW -->
+  <row>
+    <panel>
+      <title>Répartition BLOCK vs ALLOW</title>
+      <chart>
+        <search>
+          <query>index=main sourcetype=syslog "UFW" | rex "\[UFW\s+(?&lt;action&gt;BLOCK|ALLOW|LIMIT)\]" | stats count by action</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+    
+    <!-- Panneau 3: Timeline des événements -->
+    <panel>
+      <title>Timeline des Événements UFW</title>
+      <chart>
+        <search>
+          <query>index=main sourcetype=syslog "UFW" | timechart count by action</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Panneau 4: Top IP Sources -->
+  <row>
+    <panel>
+      <title>Top 10 IP Sources (BLOCK)</title>
+      <table>
+        <search>
+          <query>index=main sourcetype=syslog "UFW BLOCK" | rex "SRC=(?&lt;src_ip&gt;\d+\.\d+\.\d+\.\d+)" | stats count by src_ip | sort -count | head 10</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+    
+    <!-- Panneau 5: Top Ports Ciblés -->
+    <panel>
+      <title>Top 10 Ports Ciblés (BLOCK)</title>
+      <table>
+        <search>
+          <query>index=main sourcetype=syslog "UFW BLOCK" | rex "DPT=(?&lt;dport&gt;\d+)" | stats count by dport | sort -count | head 10</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Panneau 6: Derniers événements -->
+  <row>
+    <panel>
+      <title>Derniers Événements UFW</title>
+      <table>
+        <search>
+          <query>index=main sourcetype=syslog "UFW" | head 50 | eval action=if(match(_raw, "UFW BLOCK"), "BLOCK", if(match(_raw, "UFW ALLOW"), "ALLOW", "OTHER")) | rex "SRC=(?&lt;src_ip&gt;\d+\.\d+\.\d+\.\d+)" | rex "DST=(?&lt;dst_ip&gt;\d+\.\d+\.\d+\.\d+)" | rex "DPT=(?&lt;dport&gt;\d+)" | rex "PROTO=(?&lt;proto&gt;\w+)" | table _time, action, src_ip, dst_ip, dport, proto, _raw</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="count">50</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">row</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+        <fields>["_time", "action", "src_ip", "dst_ip", "dport", "proto"]</fields>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Panneau 7: Répartition par protocole -->
+  <row>
+    <panel>
+      <title>Répartition par Protocole</title>
+      <chart>
+        <search>
+          <query>index=main sourcetype=syslog "UFW" | rex "PROTO=(?&lt;proto&gt;\w+)" | stats count by proto</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+    
+    <!-- Panneau 8: Évolution horaire -->
+    <panel>
+      <title>Évolution Horaire (Dernières 24h)</title>
+      <chart>
+        <search>
+          <query>index=main sourcetype=syslog "UFW" | timechart span=1h count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Configuration du rafraîchissement -->
+  <refresh>30s</refresh>
+  <refreshType>delay</refreshType>
+</dashboard>
+

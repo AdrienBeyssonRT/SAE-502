@@ -183,6 +183,10 @@ Ouvrez **http://localhost:8000** dans votre navigateur et connectez-vous avec :
 - **Utilisateur** : `admin`
 - **Mot de passe** : `splunk1RT3`
 
+**Dashboard automatique** : Le dashboard UFW est automatiquement créé et disponible dans :
+- Menu **Dashboards** → **UFW Firewall Dashboard**
+- Ou directement via : http://localhost:8000/en-US/app/search/ufw_firewall_dashboard
+
 Vous devriez voir :
 - ✅ Statistiques (total logs, tentatives bloquées, connexions autorisées)
 - ✅ Logs détaillés avec IP sources, ports, protocoles
