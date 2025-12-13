@@ -12,41 +12,11 @@ SAE502 final/
 ├── STRUCTURE.md                   # Ce fichier - Structure du projet
 ├── PROJET.md                      # Compte rendu du projet
 │
-├── ansible/                       # Configuration Ansible
-│   ├── inventory                  # Inventaire Ansible (localhost)
-│   │
-│   ├── playbooks/                 # Playbooks Ansible
-│   │   ├── install.yml            # Installation Docker et préparation système
-│   │   ├── deploy.yml             # Déploiement complet de l'infrastructure
-│   │   ├── deploy-and-test.yml    # Déploiement complet avec tests automatiques
-│   │   └── rules_update.yml       # Mise à jour dynamique des règles UFW
-│   │
-│   └── roles/                     # Rôles Ansible
-│       ├── docker/                # Rôle : Installation Docker
-│       │   ├── defaults/main.yml  # Variables par défaut
-│       │   └── tasks/main.yml     # Tâches d'installation
-│       │
-│       ├── firewall/              # Rôle : Configuration pare-feu
-│       │   ├── defaults/main.yml  # Variables par défaut
-│       │   ├── tasks/main.yml     # Construction de l'image Docker
-│       │   └── templates/
-│       │       └── setup-ufw.sh.j2  # Template des règles UFW
-│       │
-│       ├── logcollector/          # Rôle : Collecteur de logs
-│       │   ├── defaults/main.yml
-│       │   └── tasks/main.yml
-│       │
-│       ├── splunk/                 # Rôle : Configuration Splunk (si nécessaire)
-│       │   ├── defaults/main.yml
-│       │   └── tasks/main.yml
-│       │
-│       ├── client/                # Rôle : Conteneur client de test
-│       │   ├── defaults/main.yml
-│       │   └── tasks/main.yml
-│       │
-│       └── docker_compose/       # Rôle : Orchestration Docker
-│           ├── defaults/main.yml
-│           └── tasks/main.yml
+    ├── ansible/                       # Configuration Ansible
+    │   ├── inventory                  # Inventaire Ansible (localhost)
+    │   │
+    │   └── playbooks/                 # Playbooks Ansible
+    │       └── deploy-and-test.yml    # Déploiement complet avec tests automatiques
 │
 └── containers/                    # Conteneurs Docker
     │
@@ -82,10 +52,12 @@ SAE502 final/
 
 ### Playbooks
 
-- **install.yml** : Installe Docker et prépare le système
-- **deploy.yml** : Déploie toute l'infrastructure (images + conteneurs)
 - **deploy-and-test.yml** : Déploiement complet avec tests automatiques et vérification
-- **rules_update.yml** : Met à jour dynamiquement les règles UFW
+  - Construit les images Docker de tous les conteneurs
+  - Lance l'infrastructure complète via docker-compose
+  - Configure automatiquement UFW avec les règles
+  - Génère du trafic et vérifie les logs
+  - Vérifie l'intégration avec Splunk
 
 ### Scripts d'automatisation
 
@@ -94,13 +66,6 @@ SAE502 final/
   - Mise à jour du système
   - Déploiement complet via Ansible
   - Tests et vérifications
-
-### Rôles Ansible
-
-Chaque rôle suit la structure standard Ansible :
-- `defaults/` : Variables par défaut
-- `tasks/` : Tâches à exécuter
-- `templates/` : Templates Jinja2 (si nécessaire)
 
 ### Conteneurs Docker
 
@@ -126,7 +91,7 @@ Chaque conteneur contient :
    - Lance l'infrastructure complète via docker-compose
    - Configure automatiquement UFW avec les règles
    - Génère du trafic et vérifie les logs
-3. **rules_update.yml** → Met à jour les règles UFW si nécessaire
+   - Vérifie l'intégration avec Splunk
 
 ## Réseaux Docker
 

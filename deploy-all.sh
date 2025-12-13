@@ -66,9 +66,11 @@ fi
 # Mise à jour du système
 print_info "Mise à jour du système..."
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get upgrade -y -qq
-apt-get install -y -qq software-properties-common
+apt-get update -qq || {
+    print_warn "Certains dépôts peuvent être indisponibles, continuation..."
+}
+apt-get upgrade -y -qq || true
+apt-get install -y -qq software-properties-common || true
 print_info "✅ Système mis à jour"
 echo ""
 
@@ -97,26 +99,46 @@ if command -v ansible-playbook &> /dev/null; then
     ANSIBLE_VERSION=$(ansible-playbook --version | head -n1)
     print_info "✅ Ansible déjà installé: $ANSIBLE_VERSION"
 else
-    if [ "$OS" == "ubuntu" ]; then
-        apt-get install -y -qq gnupg2 || true
-        apt-add-repository --yes --update ppa:ansible/ansible 2>/dev/null || {
-            print_warn "Impossible d'ajouter le PPA, installation via pip..."
-            python3 -m pip install ansible --break-system-packages || true
-        }
+    ANSIBLE_INSTALLED=false
+    
+    # Essayer d'installer via apt (PPA) pour Ubuntu/Debian
+    if [ "$OS" == "ubuntu" ] || [ "$OS" == "debian" ]; then
+        # Installer les dépendances nécessaires
+        apt-get install -y -qq gnupg2 software-properties-common 2>/dev/null || true
+        
+        # Essayer d'ajouter le PPA Ansible (peut échouer pour les versions récentes)
+        if apt-add-repository --yes --update ppa:ansible/ansible 2>/dev/null; then
+            print_info "PPA Ansible ajouté avec succès"
+            if apt-get update -qq 2>/dev/null && apt-get install -y -qq ansible 2>/dev/null; then
+                ANSIBLE_INSTALLED=true
+                print_info "✅ Ansible installé via PPA"
+            fi
+        else
+            print_warn "PPA Ansible non disponible pour cette version (normal pour Ubuntu 25.10+)"
+            print_info "Installation d'Ansible via pip..."
+        fi
     fi
     
-    if ! command -v ansible-playbook &> /dev/null; then
-        apt-get install -y -qq ansible || {
-            print_warn "Installation via apt échouée, tentative via pip..."
-            python3 -m pip install ansible --break-system-packages || true
-        }
+    # Si l'installation via apt a échoué, utiliser pip
+    if [ "$ANSIBLE_INSTALLED" = false ]; then
+        print_info "Installation d'Ansible via pip..."
+        # Installer les dépendances système nécessaires pour Ansible
+        apt-get install -y -qq python3-dev libffi-dev gcc 2>/dev/null || true
+        
+        if python3 -m pip install --upgrade pip setuptools wheel --quiet 2>/dev/null && \
+           python3 -m pip install ansible --break-system-packages --quiet 2>/dev/null; then
+            ANSIBLE_INSTALLED=true
+            print_info "✅ Ansible installé via pip"
+        fi
     fi
     
+    # Vérification finale
     if command -v ansible-playbook &> /dev/null; then
         ANSIBLE_VERSION=$(ansible-playbook --version | head -n1)
-        print_info "✅ Ansible installé: $ANSIBLE_VERSION"
+        print_info "✅ Ansible installé avec succès: $ANSIBLE_VERSION"
     else
-        print_error "Échec de l'installation d'Ansible"
+        print_error "❌ Échec de l'installation d'Ansible"
+        print_error "Essayez manuellement: python3 -m pip install ansible --break-system-packages"
         exit 1
     fi
 fi
