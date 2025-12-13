@@ -66,9 +66,23 @@ fi
 # Mise à jour du système
 print_info "Mise à jour du système..."
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq || {
+
+# Nettoyer les sources apt problématiques (PPA Ansible pour versions non supportées)
+if ls /etc/apt/sources.list.d/ansible-ubuntu-ansible-*.list 2>/dev/null | grep -q .; then
+    print_info "Nettoyage des sources apt problématiques (PPA Ansible)..."
+    rm -f /etc/apt/sources.list.d/ansible-ubuntu-ansible-*.list 2>/dev/null || true
+    rm -f /etc/apt/sources.list.d/ansible-ubuntu-ansible-*.save 2>/dev/null || true
+fi
+
+# Mise à jour en ignorant les erreurs de dépôts non disponibles
+print_info "Mise à jour des dépôts apt..."
+set +e  # Désactiver l'arrêt sur erreur temporairement
+apt-get update -qq 2>&1 | grep -v "questing Release" | grep -v "has no Release file" | grep -v "^E:" > /dev/null
+UPDATE_STATUS=$?
+set -e  # Réactiver l'arrêt sur erreur
+if [ $UPDATE_STATUS -ne 0 ]; then
     print_warn "Certains dépôts peuvent être indisponibles, continuation..."
-}
+fi
 apt-get upgrade -y -qq || true
 apt-get install -y -qq software-properties-common || true
 print_info "✅ Système mis à jour"
@@ -109,7 +123,11 @@ else
         # Essayer d'ajouter le PPA Ansible (peut échouer pour les versions récentes)
         if apt-add-repository --yes --update ppa:ansible/ansible 2>/dev/null; then
             print_info "PPA Ansible ajouté avec succès"
-            if apt-get update -qq 2>/dev/null && apt-get install -y -qq ansible 2>/dev/null; then
+            # Mise à jour en ignorant les erreurs de dépôts
+            set +e
+            apt-get update -qq 2>&1 | grep -v "questing Release" | grep -v "has no Release file" | grep -v "^E:" > /dev/null
+            set -e
+            if apt-get install -y -qq ansible 2>/dev/null; then
                 ANSIBLE_INSTALLED=true
                 print_info "✅ Ansible installé via PPA"
             fi
@@ -170,7 +188,15 @@ else
           $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
     fi
     
-    apt-get update -qq
+    # Mise à jour en ignorant les erreurs de dépôts non disponibles
+    print_info "Mise à jour des dépôts pour Docker..."
+    set +e  # Désactiver l'arrêt sur erreur temporairement
+    apt-get update -qq 2>&1 | grep -v "questing Release" | grep -v "has no Release file" | grep -v "^E:" > /dev/null
+    UPDATE_STATUS=$?
+    set -e  # Réactiver l'arrêt sur erreur
+    if [ $UPDATE_STATUS -ne 0 ]; then
+        print_warn "Certains dépôts peuvent être indisponibles, continuation..."
+    fi
     apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     
     systemctl enable docker
